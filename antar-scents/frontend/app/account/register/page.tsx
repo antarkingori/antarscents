@@ -27,7 +27,8 @@ export default function RegisterPage() {
       toast.success('Account created successfully!');
       router.push('/account');
     } catch (err: unknown) {
-      toast.error((err as { response?: { data?: { message?: string } } }).response?.data?.message || 'Registration failed');
+      const e = err as { response?: { data?: { message?: string } } };
+      toast.error(!e.response ? 'Cannot reach server. Check NEXT_PUBLIC_API_URL in Vercel.' : (e.response.data?.message || 'Registration failed'));
     } finally {
       setLoading(false);
     }

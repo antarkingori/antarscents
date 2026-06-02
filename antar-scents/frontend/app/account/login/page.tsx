@@ -22,7 +22,12 @@ export default function LoginPage() {
       toast.success('Welcome back!');
       router.push('/account');
     } catch (err: unknown) {
-      toast.error((err as { response?: { data?: { message?: string } } }).response?.data?.message || 'Invalid credentials');
+      const e = err as { response?: { data?: { message?: string } }; code?: string };
+      if (!e.response) {
+        toast.error('Cannot reach server. Check that NEXT_PUBLIC_API_URL is set in Vercel and the backend is running.');
+      } else {
+        toast.error(e.response.data?.message || 'Invalid email or password');
+      }
     }
   };
 

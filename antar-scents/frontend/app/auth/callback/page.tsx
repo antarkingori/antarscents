@@ -1,6 +1,6 @@
 'use client';
-import { useEffect, useState, Suspense } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useEffect, useState, useRef, Suspense } from 'react';
+import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/auth';
 import axios from 'axios';
@@ -16,55 +16,56 @@ function CallbackHandler() {
   const [status, setStatus] = useState<Status>('loading');
   const [message, setMessage] = useState('');
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { setUser } = useAuthStore();
+  const handled = useRef(false);
+
+  const exchangeWithBackend = async (accessToken: string) => {
+    if (handled.current) return;
+    handled.current = true;
+    try {
+      const { data } = await axios.post(`${API_URL}/api/auth/google`, {
+        access_token: accessToken,
+      });
+      setUser(data.data.user, data.data.token);
+      setStatus('success');
+      setMessage('Signed in successfully! Redirecting...');
+      setTimeout(() => router.replace('/account'), 1500);
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } }).response?.data?.message;
+      setStatus('error');
+      setMessage(msg || 'Sign-in failed. Please try again.');
+    }
+  };
 
   useEffect(() => {
-    const handle = async () => {
-      try {
-        // Supabase returns error params if user cancels or something goes wrong
-        const oauthError = searchParams.get('error');
-        const oauthErrorDesc = searchParams.get('error_description');
-        if (oauthError) {
-          setStatus('error');
-          setMessage(oauthErrorDesc || 'Authentication was cancelled or failed.');
-          return;
-        }
-
-        // Supabase v2 uses PKCE by default — auth code arrives as ?code= query param
-        const code = searchParams.get('code');
-        if (!code) {
-          setStatus('error');
-          setMessage('No authentication code received. Please try signing in again.');
-          return;
-        }
-
-        // Exchange the PKCE code for a real session
-        const { data: { session }, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
-        if (exchangeError || !session) {
-          setStatus('error');
-          setMessage(exchangeError?.message || 'Failed to complete sign-in. The link may have expired.');
-          return;
-        }
-
-        // Swap the Supabase access_token for our own backend JWT
-        const { data } = await axios.post(`${API_URL}/api/auth/google`, {
-          access_token: session.access_token,
-        });
-
-        setUser(data.data.user, data.data.token);
-        setStatus('success');
-        setMessage('Signed in successfully! Redirecting...');
-        setTimeout(() => router.replace('/account'), 1500);
-      } catch (err: unknown) {
-        const msg = (err as { response?: { data?: { message?: string } } }).response?.data?.message;
+    // Check for error in hash (implicit flow puts errors in hash too)
+    if (typeof window !== 'undefined') {
+      const hash = new URLSearchParams(window.location.hash.substring(1));
+      const hashError = hash.get('error');
+      const hashErrorDesc = hash.get('error_description');
+      if (hashError) {
         setStatus('error');
-        setMessage(msg || 'Sign-in failed. Please try again.');
+        setMessage(hashErrorDesc?.replace(/\+/g, ' ') || 'Authentication was cancelled or failed.');
+        return;
       }
-    };
+    }
 
-    handle();
-  }, [router, searchParams, setUser]);
+    // With implicit flow + detectSessionInUrl:true, Supabase processes the hash on init.
+    // onAuthStateChange fires SIGNED_IN once the session is ready.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session) {
+        exchangeWithBackend(session.access_token);
+      }
+    });
+
+    // getSession() as fallback in case auth state already settled before listener attached
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) exchangeWithBackend(session.access_token);
+    });
+
+    return () => subscription.unsubscribe();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="text-center space-y-4 py-4">

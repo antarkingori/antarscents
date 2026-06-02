@@ -4,7 +4,19 @@ import { settingsApi } from '@/lib/api';
 import { Loader2, Save } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-const SETTING_GROUPS = [
+interface SettingItem {
+  key: string;
+  label: string;
+  type?: string;
+  help?: string;
+}
+
+interface SettingGroup {
+  title: string;
+  settings: SettingItem[];
+}
+
+const SETTING_GROUPS: SettingGroup[] = [
   {
     title: 'Contact & Support',
     settings: [

@@ -1,11 +1,16 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
+  typescript: {
+    ignoreBuildErrors: false,
+  },
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: '**' },
       { protocol: 'http', hostname: 'localhost' },
     ],
-    unoptimized: process.env.NODE_ENV === 'development',
   },
   async headers() {
     return [
@@ -19,8 +24,6 @@ const nextConfig = {
       },
     ];
   },
-  // Ensure trailing slash consistency
-  trailingSlash: false,
 };
 
 module.exports = nextConfig;

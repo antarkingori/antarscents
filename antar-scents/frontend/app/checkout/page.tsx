@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import Header from '@/components/layout/Header';
 import { useCartStore } from '@/store/cart';
 import { useAuthStore } from '@/store/auth';

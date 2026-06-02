@@ -1,6 +1,22 @@
 import type { Metadata } from 'next';
+import { Playfair_Display, Inter } from 'next/font/google';
 import './globals.css';
 import Providers from '@/components/Providers';
+
+const playfair = Playfair_Display({
+  subsets: ['latin'],
+  weight: ['400', '600', '700'],
+  style: ['normal', 'italic'],
+  variable: '--font-playfair',
+  display: 'swap',
+});
+
+const inter = Inter({
+  subsets: ['latin'],
+  weight: ['300', '400', '500', '600', '700'],
+  variable: '--font-inter',
+  display: 'swap',
+});
 
 export const metadata: Metadata = {
   title: { default: 'Antar Scents — Discover Your Signature Scent', template: '%s | Antar Scents' },
@@ -19,13 +35,8 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
-      </head>
-      <body className="bg-black text-white antialiased">
+    <html lang="en" className={`${playfair.variable} ${inter.variable}`}>
+      <body className="bg-black text-white antialiased font-inter">
         <Providers>{children}</Providers>
       </body>
     </html>

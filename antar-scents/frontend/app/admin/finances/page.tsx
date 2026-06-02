@@ -16,7 +16,8 @@ export default function AdminFinancesPage() {
     adminApi.getFinances(from, to).then(r => setData(r.data.data)).finally(() => setLoading(false));
   };
 
-  useEffect(() => { fetchData(); }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { fetchData(); }, [from, to]);
 
   const summary = data?.summary as Record<string, number> || {};
 

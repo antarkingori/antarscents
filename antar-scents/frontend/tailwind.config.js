@@ -23,8 +23,8 @@ module.exports = {
         },
       },
       fontFamily: {
-        playfair: ['var(--font-playfair)', 'Playfair Display', 'serif'],
-        inter: ['var(--font-inter)', 'Inter', 'sans-serif'],
+        playfair: ['var(--font-playfair)', 'serif'],
+        inter: ['var(--font-inter)', 'sans-serif'],
       },
       animation: {
         'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',

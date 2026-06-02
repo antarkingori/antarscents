@@ -20,9 +20,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const router = useRouter();
   const pathname = usePathname();
 
+  // Admin login page renders standalone — no shell, no auth check
+  if (pathname === '/admin/login') return <>{children}</>;
+
   useEffect(() => {
-    if (!user) { router.push('/account/login'); return; }
-    if (user.role !== 'admin') { router.push('/'); }
+    if (!user) { router.push('/admin/login'); return; }
+    if (user.role !== 'admin') { router.push('/admin/login'); }
   }, [user, router]);
 
   if (!user || user.role !== 'admin') return null;
@@ -43,7 +46,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           ))}
         </nav>
         <div className="p-4 border-t border-[#1A1A1A]">
-          <button onClick={() => { logout(); router.push('/'); }} className="flex items-center gap-3 text-gray-500 hover:text-red-400 text-sm w-full transition-colors">
+          <button onClick={() => { logout(); router.push('/admin/login'); }} className="flex items-center gap-3 text-gray-500 hover:text-red-400 text-sm w-full transition-colors">
             <LogOut size={17} /> Logout
           </button>
         </div>

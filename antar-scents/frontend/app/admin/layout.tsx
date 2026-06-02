@@ -19,14 +19,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const { user, logout } = useAuthStore();
   const router = useRouter();
   const pathname = usePathname();
+  const isLoginPage = pathname === '/admin/login';
 
-  // Admin login page renders standalone — no shell, no auth check
-  if (pathname === '/admin/login') return <>{children}</>;
-
+  // All hooks must run unconditionally — conditional return comes after
   useEffect(() => {
+    if (isLoginPage) return;
     if (!user) { router.push('/admin/login'); return; }
     if (user.role !== 'admin') { router.push('/admin/login'); }
-  }, [user, router]);
+  }, [user, router, isLoginPage]);
+
+  // Login page renders standalone with no shell and no auth check
+  if (isLoginPage) return <>{children}</>;
 
   if (!user || user.role !== 'admin') return null;
 

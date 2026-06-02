@@ -148,12 +148,12 @@ export default function ProductPage() {
             <div className="flex items-start gap-3 bg-[#111] border border-[#1A1A1A] rounded-xl p-4">
               <Truck size={20} className="text-gold flex-shrink-0 mt-0.5" />
               <div>
-                <p className="text-sm font-medium">Delivered to your matatu stage</p>
-                <p className="text-xs text-gray-400 mt-0.5">KES 200–1,000 delivery fee. Countrywide delivery available.</p>
+                <p className="text-sm font-medium">Same-day Nairobi · Kenya-wide · Worldwide</p>
+                <p className="text-xs text-gray-400 mt-0.5">Same-day delivery in Nairobi. Fast delivery across Kenya and internationally.</p>
               </div>
             </div>
 
-            <a href="https://wa.me/254922748842" target="_blank" rel="noopener noreferrer"
+            <a href="https://wa.me/254792274842?text=${encodeURIComponent('Hi! I\'d like to ask about this product.')}" target="_blank" rel="noopener noreferrer"
               className="flex items-center gap-2 text-green-400 hover:text-green-300 text-sm transition-colors">
               <span>💬</span> Ask about this product on WhatsApp
             </a>

@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 80" fill="none">
+  <!-- Perfume bottle icon -->
+  <g transform="translate(8, 8)">
+    <!-- Bottle neck -->
+    <rect x="22" y="4" width="20" height="8" rx="3" fill="url(#bottleGrad)"/>
+    <!-- Spray nozzle -->
+    <rect x="34" y="2" width="12" height="4" rx="2" fill="#C9A84C"/>
+    <rect x="44" y="4" width="6" height="2" rx="1" fill="#C9A84C"/>
+    <!-- Bottle body -->
+    <rect x="14" y="12" width="36" height="44" rx="8" fill="url(#bottleGrad)"/>
+    <!-- Bottle shine -->
+    <rect x="20" y="16" width="6" height="28" rx="3" fill="rgba(255,255,255,0.15)"/>
+    <!-- Sparkle dots -->
+    <circle cx="52" cy="18" r="2" fill="#F0D080" opacity="0.8"/>
+    <circle cx="57" cy="12" r="1.5" fill="#C9A84C" opacity="0.6"/>
+    <circle cx="55" cy="24" r="1" fill="#F0D080" opacity="0.5"/>
+  </g>
+  <!-- Brand name -->
+  <text x="82" y="38" font-family="Georgia, 'Times New Roman', serif" font-size="22" font-weight="700" letter-spacing="4" fill="url(#textGrad)">ANTAR</text>
+  <text x="82" y="62" font-family="Georgia, 'Times New Roman', serif" font-size="14" font-weight="400" letter-spacing="8" fill="url(#textGradLight)">SCENTS</text>
+  <!-- Divider line -->
+  <line x1="82" y1="68" x2="296" y2="68" stroke="url(#lineGrad)" stroke-width="0.75" opacity="0.6"/>
+  <!-- Tagline -->
+  <text x="82" y="76" font-family="Georgia, serif" font-size="7" font-weight="400" letter-spacing="2.5" fill="#8B6914" opacity="0.8">DISCOVER YOUR SIGNATURE SCENT</text>
+  <!-- Gradients -->
+  <defs>
+    <linearGradient id="bottleGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F0D080"/>
+      <stop offset="50%" stop-color="#C9A84C"/>
+      <stop offset="100%" stop-color="#8B6914"/>
+    </linearGradient>
+    <linearGradient id="textGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#F0D080"/>
+      <stop offset="50%" stop-color="#C9A84C"/>
+      <stop offset="100%" stop-color="#D4B96A"/>
+    </linearGradient>
+    <linearGradient id="textGradLight" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#C9A84C"/>
+      <stop offset="100%" stop-color="#F0D080"/>
+    </linearGradient>
+    <linearGradient id="lineGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#C9A84C"/>
+      <stop offset="100%" stop-color="transparent"/>
+    </linearGradient>
+  </defs>
+</svg>

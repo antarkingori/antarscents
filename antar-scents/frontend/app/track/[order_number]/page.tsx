@@ -96,12 +96,12 @@ export default function TrackPage() {
             <div className="bg-[#111] border border-[#1A1A1A] rounded-2xl p-6 space-y-3 text-sm">
               <h3 className="font-semibold text-gray-300">Delivery Information</h3>
               <div className="flex gap-3"><span className="text-gray-500 w-32">Customer</span><span>{order.customer_name as string}</span></div>
-              <div className="flex gap-3"><span className="text-gray-500 w-32">Matatu Route</span><span>{(order.delivery_matatu_route as string) || 'Not specified'}</span></div>
+              <div className="flex gap-3"><span className="text-gray-500 w-32">Pickup Location</span><span>{(order.delivery_matatu_route as string) || 'Not specified'}</span></div>
               <div className="flex gap-3"><span className="text-gray-500 w-32">Payment</span><span className="capitalize">{(order.payment_method as string)?.replace('_', ' ')}</span></div>
               <div className="flex gap-3"><span className="text-gray-500 w-32">Est. Delivery</span><span>2–5 business days</span></div>
             </div>
 
-            <a href="https://wa.me/254922748842" target="_blank" rel="noopener noreferrer" className="block text-center text-green-400 hover:text-green-300 text-sm py-3 bg-green-500/10 border border-green-500/20 rounded-xl transition-colors">
+            <a href="https://wa.me/254792274842" target="_blank" rel="noopener noreferrer" className="block text-center text-green-400 hover:text-green-300 text-sm py-3 bg-green-500/10 border border-green-500/20 rounded-xl transition-colors">
               💬 Need help? Chat with us on WhatsApp
             </a>
           </div>

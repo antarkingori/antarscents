@@ -50,8 +50,8 @@ export default function Footer() {
             <h4 className="font-semibold text-white mb-4 tracking-wide text-sm uppercase">Contact Us</h4>
             <ul className="space-y-3 text-sm text-gray-400">
               <li><a href="mailto:info@antarscents.shop" className="hover:text-gold transition-colors">📧 info@antarscents.shop</a></li>
-              <li><a href="tel:+254922748842" className="hover:text-gold transition-colors">📞 +254 922 748 842</a></li>
-              <li><a href="https://wa.me/254922748842" target="_blank" rel="noopener noreferrer" className="hover:text-gold transition-colors">💬 WhatsApp Us</a></li>
+              <li><a href="tel:+254792274842" className="hover:text-gold transition-colors">📞 +254 792 274 842</a></li>
+              <li><a href="https://wa.me/254792274842?text=Hi%20Antar%20Scents!%20I%27d%20like%20to%20inquire%20about%20your%20fragrances%20%F0%9F%8C%9F" target="_blank" rel="noopener noreferrer" className="hover:text-gold transition-colors">💬 WhatsApp Us</a></li>
               <li><span>📍 Nairobi, Kenya</span></li>
               <li><span>⏰ Mon–Sat, 8AM–8PM</span></li>
             </ul>

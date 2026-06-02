@@ -95,7 +95,7 @@ CREATE TABLE IF NOT EXISTS settings (
 -- SEED DEFAULT SETTINGS
 -- =============================================
 INSERT INTO settings (key, value) VALUES
-  ('whatsapp_number', '254922748842'),
+  ('whatsapp_number', '254792274842'),
   ('contact_email', 'info@antarscents.shop'),
   ('shop_name', 'Antar Scents'),
   ('tagline', 'Discover Your Signature Scent'),
@@ -164,6 +164,24 @@ CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_browsing_user_id ON browsing_history(user_id);
 CREATE INDEX IF NOT EXISTS idx_browsing_session_id ON browsing_history(session_id);
 CREATE INDEX IF NOT EXISTS idx_favourites_user_id ON favourites(user_id);
+
+-- PASSWORD RESET TOKENS
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
+  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token text NOT NULL UNIQUE,
+  expires_at timestamptz NOT NULL,
+  created_at timestamptz DEFAULT now(),
+  CONSTRAINT one_token_per_user UNIQUE (user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_prt_token ON password_reset_tokens(token);
+CREATE INDEX IF NOT EXISTS idx_prt_user_id ON password_reset_tokens(user_id);
+
+-- RLS for password_reset_tokens (service role only)
+ALTER TABLE password_reset_tokens ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Service role full access prt" ON password_reset_tokens
+  USING (auth.role() = 'service_role');
 
 -- =============================================
 -- STORAGE BUCKET

@@ -1,9 +1,11 @@
 'use client';
 import { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { authApi } from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
+import GoogleButton from '@/components/ui/GoogleButton';
 import { Loader2, Eye, EyeOff } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -35,11 +37,23 @@ export default function RegisterPage() {
     <div className="min-h-screen bg-black text-white flex items-center justify-center px-4 py-16">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <Link href="/" className="font-playfair text-2xl font-bold gold-text tracking-widest">ANTAR SCENTS</Link>
+          <Link href="/">
+            <Image src="/logo.svg" alt="Antar Scents" width={220} height={55} className="mx-auto" priority />
+          </Link>
           <h1 className="font-playfair text-3xl font-bold mt-6 mb-2">Create Account</h1>
           <p className="text-gray-400 text-sm">Join Antar Scents today</p>
         </div>
-        <div className="bg-[#111] border border-[#1A1A1A] rounded-2xl p-8 shadow-2xl">
+
+        <div className="bg-[#111] border border-[#1A1A1A] rounded-2xl p-8 shadow-2xl space-y-5">
+          {/* Google Sign Up */}
+          <GoogleButton label="Sign up with Google" />
+
+          <div className="flex items-center gap-3">
+            <div className="flex-1 h-px bg-[#333]" />
+            <span className="text-gray-500 text-xs">or create account with email</span>
+            <div className="flex-1 h-px bg-[#333]" />
+          </div>
+
           <form onSubmit={handleSubmit} className="space-y-4">
             {[
               { label: 'Full Name', key: 'full_name', type: 'text', placeholder: 'John Doe' },
@@ -69,7 +83,8 @@ export default function RegisterPage() {
               {loading ? <><Loader2 size={18} className="animate-spin" /> Creating Account...</> : 'Create Account'}
             </button>
           </form>
-          <p className="mt-6 text-center text-gray-400 text-sm">Already have an account? <Link href="/account/login" className="text-gold hover:underline">Sign In</Link></p>
+
+          <p className="text-center text-gray-400 text-sm">Already have an account? <Link href="/account/login" className="text-gold hover:underline">Sign In</Link></p>
         </div>
       </div>
     </div>

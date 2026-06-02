@@ -3,7 +3,6 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const { z } = require('zod');
-const axios = require('axios');
 const supabase = require('../lib/supabase');
 const { authMiddleware } = require('../middleware/auth');
 const { sendPasswordResetEmail } = require('../lib/email');

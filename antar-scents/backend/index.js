@@ -10,8 +10,10 @@ const app = express();
 
 // Security & middleware
 app.use(helmet());
+// CORS: reflect exact request origin so credentials work with any origin in dev;
+// restrict to FRONTEND_URL in production
 app.use(cors({
-  origin: process.env.FRONTEND_URL ? process.env.FRONTEND_URL.split(',') : '*',
+  origin: process.env.FRONTEND_URL ? process.env.FRONTEND_URL.split(',') : true,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']

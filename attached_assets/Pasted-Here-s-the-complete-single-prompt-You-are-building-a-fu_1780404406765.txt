@@ -1,0 +1,1018 @@
+Here's the complete single prompt:
+
+---
+
+```
+You are building a full-stack e-commerce web application called **ANTAR SCENTS** — a Kenyan online perfume shop based in Nairobi that delivers countrywide. Build the entire system end-to-end, including all frontend pages, backend APIs, database schema, payment integrations, admin panel, and deployment configuration. Do not skip any section.
+
+---
+
+## 🧱 TECH STACK
+
+- **Frontend:** Next.js 14 (App Router), React, Tailwind CSS → deployed on **Vercel**
+- **Backend:** Node.js + Express REST API → deployed on **Render**
+- **Database:** Supabase (PostgreSQL + Storage)
+- **Repo:** GitHub monorepo (Vercel and Render auto-deploy from it)
+- **Payments:** M-Pesa (STK Push via Safaricom Daraja API + manual till number entry) and Paystack (card + mobile money)
+
+---
+
+## 📁 PROJECT STRUCTURE
+
+```
+/
+├── frontend/                   # Next.js 14 App → Vercel
+│   ├── app/
+│   │   ├── page.tsx                    # Homepage
+│   │   ├── shop/page.tsx               # Product listing
+│   │   ├── product/[slug]/page.tsx     # Product detail
+│   │   ├── cart/page.tsx               # Cart
+│   │   ├── checkout/page.tsx           # Checkout (3 steps)
+│   │   ├── account/page.tsx            # Customer dashboard
+│   │   ├── account/login/page.tsx
+│   │   ├── account/register/page.tsx
+│   │   ├── track/[order_number]/page.tsx
+│   │   ├── admin/page.tsx              # Admin dashboard
+│   │   ├── admin/products/page.tsx
+│   │   ├── admin/orders/page.tsx
+│   │   ├── admin/customers/page.tsx
+│   │   ├── admin/finances/page.tsx
+│   │   └── admin/settings/page.tsx
+│   ├── components/
+│   ├── lib/
+│   └── public/
+├── backend/                    # Express API → Render
+│   ├── routes/
+│   ├── middleware/
+│   ├── controllers/
+│   ├── lib/
+│   └── index.js
+└── README.md
+```
+
+---
+
+## 🔐 ENVIRONMENT VARIABLES
+
+### Render (Backend) — set all of these in the Render dashboard
+```
+ADMIN_EMAIL=antarkingori@gmail.com
+ADMIN_PASSWORD=Antar@254!
+SUPABASE_URL=your_supabase_project_url
+SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
+MPESA_CONSUMER_KEY=your_daraja_consumer_key
+MPESA_CONSUMER_SECRET=your_daraja_consumer_secret
+MPESA_SHORTCODE=your_mpesa_till_or_paybill
+MPESA_PASSKEY=your_daraja_passkey
+MPESA_CALLBACK_URL=https://your-render-app.onrender.com/api/payments/mpesa/callback
+PAYSTACK_SECRET_KEY=your_paystack_secret_key
+JWT_SECRET=your_secure_random_jwt_secret
+NODE_ENV=production
+PORT=5000
+```
+
+### Vercel (Frontend) — set in Vercel project settings
+```
+NEXT_PUBLIC_API_URL=https://your-render-app.onrender.com
+NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY=your_paystack_public_key
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+```
+
+---
+
+## 🗄️ SUPABASE DATABASE SCHEMA — run all of this in Supabase SQL editor
+
+```sql
+-- Enable UUID extension
+create extension if not exists "uuid-ossp";
+
+-- USERS
+create table users (
+  id uuid primary key default uuid_generate_v4(),
+  email text unique not null,
+  password_hash text not null,
+  full_name text,
+  phone text,
+  role text default 'customer' check (role in ('customer', 'admin')),
+  created_at timestamptz default now()
+);
+
+-- PRODUCTS
+create table products (
+  id uuid primary key default uuid_generate_v4(),
+  title text not null,
+  handle text unique not null,
+  body_html text,
+  vendor text,
+  product_type text,
+  tags text[],
+  status text default 'active' check (status in ('active', 'draft', 'archived')),
+  images jsonb default '[]',
+  variants jsonb default '[]',
+  buying_price decimal(10,2),
+  selling_price decimal(10,2) not null,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+-- ORDERS
+create table orders (
+  id uuid primary key default uuid_generate_v4(),
+  order_number serial unique,
+  user_id uuid references users(id) on delete set null,
+  customer_name text not null,
+  customer_email text,
+  customer_phone text not null,
+  delivery_name text,
+  delivery_phone text,
+  delivery_matatu_route text,
+  delivery_notes text,
+  items jsonb not null,
+  subtotal decimal(10,2) not null,
+  delivery_fee decimal(10,2) not null default 200,
+  total decimal(10,2) not null,
+  payment_method text check (payment_method in ('mpesa_till','mpesa_stk','paystack_card','paystack_mobile')),
+  payment_status text default 'pending' check (payment_status in ('pending','paid','failed')),
+  mpesa_code text,
+  paystack_reference text,
+  order_status text default 'pending' check (order_status in ('pending','confirmed','processing','shipped','delivered','cancelled')),
+  admin_notes text,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+-- FAVOURITES
+create table favourites (
+  id uuid primary key default uuid_generate_v4(),
+  user_id uuid references users(id) on delete cascade,
+  product_id uuid references products(id) on delete cascade,
+  created_at timestamptz default now(),
+  unique(user_id, product_id)
+);
+
+-- BROWSING HISTORY
+create table browsing_history (
+  id uuid primary key default uuid_generate_v4(),
+  user_id uuid references users(id) on delete set null,
+  session_id text,
+  product_id uuid references products(id) on delete cascade,
+  viewed_at timestamptz default now()
+);
+
+-- SETTINGS
+create table settings (
+  key text primary key,
+  value text,
+  updated_at timestamptz default now()
+);
+
+-- Seed default settings
+insert into settings (key, value) values
+  ('whatsapp_number', '254922748842'),
+  ('contact_email', 'info@antarscents.shop'),
+  ('shop_name', 'Antar Scents'),
+  ('tagline', 'Discover Your Signature Scent'),
+  ('announcement_bar', '🚚 Free delivery on orders above KES 5,000 | 📞 +254922748842'),
+  ('mpesa_till_number', '000000'),
+  ('delivery_fee_cbd', '200'),
+  ('delivery_fee_nairobi', '300'),
+  ('delivery_fee_outside', '500'),
+  ('delivery_fee_far', '1000');
+
+-- Row Level Security
+alter table users enable row level security;
+alter table products enable row level security;
+alter table orders enable row level security;
+alter table favourites enable row level security;
+alter table browsing_history enable row level security;
+alter table settings enable row level security;
+
+-- Products: anyone can read active products
+create policy "Public read active products" on products for select using (status = 'active');
+
+-- Settings: anyone can read
+create policy "Public read settings" on settings for select using (true);
+
+-- Orders: users see own orders
+create policy "Users see own orders" on orders for select using (auth.uid() = user_id);
+
+-- Favourites: users manage their own
+create policy "Users manage own favourites" on favourites for all using (auth.uid() = user_id);
+```
+
+---
+
+## 🎨 DESIGN SYSTEM
+
+- **Primary color:** Deep Gold `#C9A84C`
+- **Background:** Rich Black `#0D0D0D`
+- **Surface:** Soft Cream `#FAF7F2`
+- **Text:** White `#FFFFFF` on dark, Black `#0D0D0D` on light
+- **Accent:** Warm Brown `#8B6914`
+- **Fonts:** "Playfair Display" (headings) + "Inter" (body) from Google Fonts
+- **Border radius:** 8px cards, 4px buttons
+- **Shadows:** subtle warm glow on hover states
+- **Tailwind config:** extend theme with above colors and fonts
+- Mobile-first, fully responsive, Amazon-inspired layout with warm Kenyan branding
+
+---
+
+## 🛍️ CUSTOMER FRONTEND — ALL PAGES
+
+### `/` — Homepage
+
+Build a full Amazon-inspired homepage with these exact sections in order:
+
+1. **Announcement Bar** — thin bar at very top, gold background, text from settings `announcement_bar` key. Shows free delivery threshold and phone number.
+
+2. **Header/Navbar:**
+   - Logo: "ANTAR SCENTS" in Playfair Display
+   - Search bar (center, wide)
+   - Icons: Account, Favourites (heart with count), Cart (bag with count)
+   - Mobile: hamburger menu + bottom nav bar
+   - Sticky on scroll with subtle shadow
+
+3. **Hero Banner** — full-width, dark background with gold accents, headline: *"Discover Your Signature Scent"*, subheadline: *"Premium fragrances delivered across Kenya"*, two CTAs: **Shop Now** (gold filled) and **View Collections** (outlined). Use a high-quality perfume lifestyle background image.
+
+4. **Category Strip** — 6 horizontal scrollable category pills with icons: 🔹 Men | 🌸 Women | ✨ Unisex | 🎁 Gift Sets | 👑 Luxury | ✈️ Travel Size
+
+5. **Best Sellers** — section heading + horizontal scroll row of product cards. "View All" link.
+
+6. **New Arrivals** — 4-column grid (2 on mobile), "View All" CTA.
+
+7. **Trust Badges Row** — 4 badges: ✅ Genuine Products | 🚚 Countrywide Delivery | 💳 Secure Payments | 💬 WhatsApp Support
+
+8. **How It Works** — 4 steps with icons: Browse Scents → Add to Cart → Pay via M-Pesa or Card → Delivered to Your Matatu Stage
+
+9. **Featured Brand Strip** — horizontal logo scroll of perfume brands/vendors.
+
+10. **Personalised Strip** — for logged-in users: "Picked For You" based on browsing history. For guests: "Trending Now."
+
+11. **Testimonials** — 3 customer review cards with star ratings, name, and location (e.g., "Jane M. — Mombasa").
+
+12. **Newsletter Signup** — email input + "Get 10% Off Your First Order" CTA.
+
+13. **Footer** — (see footer spec below)
+
+---
+
+### `/shop` — Product Listing Page
+
+- **Filters sidebar** (desktop) / **Filter drawer** (mobile):
+  - Category (checkboxes)
+  - Price range (slider: KES 0 – 50,000)
+  - Brand/Vendor (checkboxes)
+  - Scent Type from tags (checkboxes)
+  - In Stock Only (toggle)
+- **Sort dropdown:** Featured | Price: Low to High | Price: High to Low | Newest | Best Selling
+- **Results count:** "Showing X of Y products"
+- **Product Grid:** 4 columns desktop, 2 columns mobile
+- **Product Card:**
+  - Product image (square, lazy loaded)
+  - Vendor name (small, muted)
+  - Product title
+  - Price in KES
+  - Star rating (if available)
+  - "Add to Cart" button (appears on hover desktop, always visible mobile)
+  - Heart icon for favourites (top-right corner of image)
+  - "Quick View" button on hover — opens modal with image, title, price, variant selector, add to cart
+- **Pagination** or infinite scroll
+
+---
+
+### `/product/[slug]` — Product Detail Page
+
+- **Breadcrumb:** Home > Shop > [Category] > [Product Name]
+- **Image gallery:** main image large left, thumbnails below, click to switch, zoom on hover
+- **Product info (right side):**
+  - Vendor name
+  - Title (Playfair Display, large)
+  - Price: **KES X,XXX** (selling_price only — never show buying_price to customers)
+  - Compare-at price struck through if available
+  - Star rating + review count
+  - Short description (first 150 chars of body_html)
+  - **Variant selector** — dropdown or button group (e.g., 30ml, 50ml, 100ml)
+  - **Quantity selector** — minus, number input, plus
+  - **Add to Cart** — large gold filled button, full width
+  - **Buy Now** — outlined button, full width
+  - **Add to Favourites** — heart icon button with label
+  - Delivery badge: "🚚 Delivered to your matatu stage — KES 200–1000"
+  - WhatsApp inquiry: "💬 Ask about this product"
+- **Full description tab**
+- **Scent Notes tab** — Top, Middle, Base notes if in product tags/description
+- **"Customers Also Viewed"** — horizontal scroll, based on browsing_history of users who viewed this product
+- **"You May Also Like"** — based on same vendor + overlapping tags
+- **"Complete the Set"** — products from same vendor
+- Log this product view to browsing_history on page load (with user_id if logged in, session_id if guest)
+
+---
+
+### `/cart` — Cart Page
+
+- Line items table: image, product name + variant, unit price, quantity controls (−/+/delete), line subtotal
+- Empty cart state: illustration + "Your cart is empty" + Shop Now CTA
+- **Order Summary card:**
+  - Subtotal
+  - Delivery fee (shows "Calculated at checkout" until address known)
+  - Total (bold)
+  - "Add KES X more to qualify for free delivery" progress bar
+- **Proceed to Checkout** — large gold CTA
+- **Continue Shopping** — text link
+- Recommended products strip below: "Customers Also Bought"
+- Cart state persisted in localStorage and synced to server if user is logged in
+
+---
+
+### `/checkout` — 3-Step Checkout
+
+Show a step progress indicator at the top: **1. Delivery → 2. Payment → 3. Confirmation**
+
+**Step 1 — Delivery Information:**
+- Full Name (required)
+- Email Address (optional for guests, note: "We'll send your order confirmation here")
+- Phone Number (required, Kenyan format validation)
+- Divider: "Delivery Details"
+- Recipient Name (pre-filled with above, editable — for when sending as gift)
+- Recipient Phone
+- **Matatu Route / Stage** — text input with helper text below: *"Enter the matatu route number and stage name that passes near you. e.g. '23 Githurai Stage', '111 Rongai CBD', '2 Kikuyu Stage', '105 Thika Road'."*
+- Additional Notes (special instructions)
+- **Delivery Fee Calculator:** Dropdown — "Nairobi CBD (KES 200)" | "Within Nairobi (KES 300)" | "Outside Nairobi — up to 100km (KES 500)" | "Far Upcountry (KES 1000)". Fee auto-added to total.
+- "Create an account" checkbox — if checked, show password field
+- **Continue to Payment** CTA
+
+**Step 2 — Payment:**
+
+Show order summary recap (items + total) on right side (desktop).
+
+Three payment tabs:
+
+**Tab A — M-Pesa Till (Manual):**
+- Instruction card with numbered steps:
+  1. Open M-Pesa on your phone
+  2. Select **Lipa na M-Pesa**
+  3. Select **Buy Goods and Services**
+  4. Enter Till Number: **[TILL_NUMBER from settings]** (large, bold, copyable)
+  5. Enter Amount: **KES [ORDER_TOTAL]** (large, bold)
+  6. Enter your M-Pesa PIN and confirm
+  7. You'll receive an SMS confirmation code (e.g. RGH2K1XYZ)
+  8. Enter that code below
+- Input: "M-Pesa Confirmation Code" — uppercase, 10 chars max
+- CTA: **Confirm My Order**
+
+**Tab B — M-Pesa STK Push:**
+- Phone number input (pre-filled from delivery step)
+- CTA: **Send Payment to My Phone**
+- On click: POST to `/api/payments/mpesa/stk-push`, show spinner
+- Polling every 3 seconds to check payment status via `/api/orders/:id/status`
+- On success: auto-advance to confirmation
+- Timeout message after 90 seconds with retry option
+
+**Tab C — Card / Mobile Money via Paystack:**
+- Text: "Pay securely with Visa, Mastercard, or Airtel Money"
+- CTA: **Pay KES [TOTAL] Securely**
+- On click: initialize Paystack transaction via backend, open Paystack inline popup
+- On success callback: verify via backend, advance to confirmation
+
+**Step 3 — Order Confirmation:**
+- Large checkmark animation
+- "Order Placed Successfully! 🎉"
+- Order number (bold, large): #ANT-XXXXX
+- Summary: items ordered, delivery details, payment method
+- Estimated delivery: "2–5 business days to your matatu stage"
+- CTA: **Track My Order**
+- CTA: **Continue Shopping**
+- WhatsApp CTA: "Questions? Chat with us on WhatsApp" → `https://wa.me/[whatsapp_number from settings]`
+- If account created: "Your account has been created. Check your email."
+
+---
+
+### `/account` — Customer Dashboard
+
+Requires login. Redirect to `/account/login` if not authenticated.
+
+**Tabs:**
+1. **Overview** — welcome message, recent order (latest 1), quick stats: total orders, total spent
+2. **My Orders** — full table: order #, date, items count, total, status badge (color-coded), "View Details" link. Expandable row shows full item list, delivery info, payment method.
+3. **My Favourites** — product grid of saved items. Remove from favourites button. Add to cart button.
+4. **Recently Viewed** — last 10 products viewed. "Clear History" option.
+5. **Profile** — edit full name, email, phone. Change password. Delete account option.
+
+---
+
+### `/account/login` and `/account/register`
+
+- Clean centered card layout
+- Login: email + password + "Forgot Password?" + Submit + "Create Account" link
+- Register: full name + email + phone + password + confirm password + Submit + "Already have account?" link
+- JWT stored in httpOnly cookie or localStorage
+- "Continue as Guest" link that routes to checkout directly
+
+---
+
+### `/track/[order_number]` — Public Order Tracking
+
+- Input form: Order Number + Phone Number used when ordering
+- On submit: fetch order status
+- Show: order status timeline (Pending → Confirmed → Processing → Shipped → Delivered), items ordered, estimated delivery, WhatsApp support link
+
+---
+
+### WhatsApp Chat Button
+
+- Fixed position: **bottom-LEFT corner**
+- Green circular button with WhatsApp icon (SVG)
+- Tooltip on hover: "Chat with us on WhatsApp!"
+- Pulse animation to draw attention
+- Links to: `https://wa.me/{whatsapp_number}` where `whatsapp_number` is fetched from Supabase settings
+- Visible on all pages
+
+---
+
+### Footer — Full 4-Column Layout
+
+**Column 1 — Brand:**
+- ANTAR SCENTS logo/wordmark
+- Tagline from settings
+- Short about: "Premium fragrances curated for every personality. Genuine products delivered across Kenya."
+- Social icons: Instagram, Facebook, TikTok, Twitter/X
+
+**Column 2 — Quick Links:**
+- Home
+- Shop All
+- New Arrivals
+- Best Sellers
+- Gift Sets
+- About Us
+- Contact Us
+
+**Column 3 — Customer Service:**
+- Track My Order
+- FAQ
+- Shipping Policy
+- Returns & Exchanges
+- Privacy Policy
+- Terms of Service
+
+**Column 4 — Contact Us:**
+- 📧 info@antarscents.shop (from settings)
+- 📞 +254922748842
+- 💬 WhatsApp Us (link)
+- 📍 Nairobi, Kenya
+- Business hours: Mon–Sat, 8AM–8PM
+
+**Bottom bar:**
+- © 2025 Antar Scents. All rights reserved.
+- Payment icons: M-Pesa logo, Visa, Mastercard, Paystack
+- Links: Privacy Policy | Terms | Returns
+
+---
+
+### Mobile Bottom Navigation Bar
+
+Fixed at bottom of screen on mobile only:
+- 🏠 Home | 🛍️ Shop | 🛒 Cart (with badge) | 👤 Account
+
+---
+
+## 🔧 BACKEND — EXPRESS API (All Routes)
+
+Base URL: `https://your-render-app.onrender.com`
+
+All responses follow: `{ success: true|false, data: {...}, message: "..." }`
+
+Use Zod for all input validation. Add express-rate-limit on payment routes. Add helmet, cors, morgan middleware.
+
+### `GET /health` — health check, returns `{ status: "ok" }`
+
+### Auth Routes `/api/auth`
+```
+POST /api/auth/register        — { full_name, email, phone, password } → creates user, returns JWT
+POST /api/auth/login           — { email, password } → returns JWT + user object
+GET  /api/auth/me              — protected, returns current user from JWT
+POST /api/auth/change-password — protected, { current_password, new_password }
+```
+
+### Product Routes `/api/products`
+```
+GET    /api/products              — public, query params: ?category=&vendor=&tags=&min_price=&max_price=&sort=&page=&limit=&search=
+GET    /api/products/:slug        — public, returns full product
+POST   /api/products              — admin only, create product
+PUT    /api/products/:id          — admin only, update product (including buying_price, selling_price)
+DELETE /api/products/:id          — admin only
+POST   /api/products/import-csv   — admin only, multipart form with CSV file
+```
+
+**CSV Import:** Accept standard Shopify product export CSV. Map these columns:
+- Title → title
+- Handle → handle
+- Body (HTML) → body_html
+- Vendor → vendor
+- Type → product_type
+- Tags → tags (split by comma)
+- Variant Price → selling_price (first variant)
+- Variant SKU → variants[0].sku
+- Image Src → images[0].src
+- Status → status
+
+Parse with `csv-parse`, bulk insert via Supabase, return count of imported products.
+
+### Order Routes `/api/orders`
+```
+POST /api/orders                        — create order (guest or authenticated)
+GET  /api/orders                        — admin: all orders with filters; customer: own orders
+GET  /api/orders/:id                    — order detail (admin or owner)
+PUT  /api/orders/:id/status             — admin only, update order_status
+PUT  /api/orders/:id/payment-status     — admin only, manually mark as paid
+POST /api/orders/:id/mpesa-code         — customer submits M-Pesa confirmation code
+GET  /api/orders/track                  — public, query: ?order_number=&phone= returns status
+```
+
+### Payment Routes `/api/payments`
+
+**M-Pesa (Daraja API):**
+```
+POST /api/payments/mpesa/stk-push
+  Body: { phone, amount, order_id }
+  → Get OAuth token from Daraja
+  → Generate timestamp + password (base64 of shortcode+passkey+timestamp)
+  → POST to https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest (use production URL in prod)
+  → Returns CheckoutRequestID, save to order
+
+POST /api/payments/mpesa/callback
+  → Daraja sends result here
+  → If ResultCode = 0: update order payment_status = 'paid', save MpesaReceiptNumber as mpesa_code
+  → If ResultCode != 0: update payment_status = 'failed'
+```
+
+**Paystack:**
+```
+POST /api/payments/paystack/initialize
+  Body: { email, amount, order_id }
+  → POST to https://api.paystack.co/transaction/initialize with secret key
+  → Return authorization_url and reference
+
+GET /api/payments/paystack/verify/:reference
+  → GET https://api.paystack.co/transaction/verify/:reference
+  → If status = 'success': update order payment_status = 'paid'
+  → Return order updated status
+```
+
+### Settings Routes `/api/settings`
+```
+GET /api/settings        — public, returns all key-value pairs as object
+PUT /api/settings/:key   — admin only, update a setting value
+```
+
+### Recommendations Route `/api/recommendations`
+```
+GET /api/recommendations?product_id=&user_id=&session_id=&limit=8
+  → Fetch current product's tags, vendor, product_type
+  → Query products with overlapping tags OR same vendor OR same product_type
+  → If user_id provided: also pull their browsing_history last 20 products, find common tags, weight those products higher
+  → Exclude the current product
+  → Return sorted by relevance score, limit 8
+```
+
+### Browsing History `/api/browsing`
+```
+POST /api/browsing     — { product_id, user_id (optional), session_id } → upsert to browsing_history
+```
+
+### Admin Finance Routes `/api/admin`
+```
+GET /api/admin/finances
+  Query params: ?from=YYYY-MM-DD&to=YYYY-MM-DD
+  → Join orders (paid only) with items, calculate:
+     revenue = sum of order totals
+     cost = sum of (buying_price × qty) per line item
+     profit = revenue - cost
+     profit_margin = (profit / revenue) × 100
+  → Group by day/month
+  → Return: { summary: { total_revenue, total_cost, net_profit, profit_margin, total_orders, avg_order_value }, chart_data: [...], orders_breakdown: [...] }
+
+GET /api/admin/finances/export
+  → Same as above but returns CSV file download
+  → Columns: Order #, Date, Customer, Items, Revenue (KES), Cost (KES), Profit (KES)
+
+GET /api/admin/customers
+  → List all users with role='customer'
+  → Include: order_count, total_spent (sum of order totals)
+
+GET /api/admin/dashboard
+  → Returns: today_sales, this_month_revenue, total_orders, pending_orders_count, total_products, low_stock_products (variants with inventory < 5), recent_orders (last 10), top_products (by order frequency, last 30 days), revenue_chart (last 30 days by day)
+```
+
+---
+
+## 🛠️ ADMIN PANEL — `/admin/*`
+
+Protect all `/admin` routes: check JWT, check role = 'admin'. Login credentials come from Render env vars `ADMIN_EMAIL` and `ADMIN_PASSWORD`. On first load, seed this admin user into Supabase `users` table if not exists.
+
+Admin panel uses the same Next.js frontend but has its own layout with a sidebar.
+
+### Admin Layout
+- Sidebar: fixed left on desktop, drawer on mobile
+- Logo at top of sidebar
+- Navigation links with icons:
+  - 📊 Dashboard
+  - 📦 Products
+  - 🛒 Orders
+  - 👥 Customers
+  - 💰 Finances
+  - ⚙️ Settings
+  - 🚪 Logout
+- Top bar: admin name, notification bell (pending orders count)
+
+---
+
+### `/admin` — Dashboard
+
+**KPI Cards row (6 cards):**
+- Today's Sales (KES)
+- This Month Revenue (KES)
+- Total Orders (all time)
+- Pending Orders (badge — red if > 0)
+- Total Active Products
+- Low Stock Alerts (products with any variant inventory < 5)
+
+**Revenue Chart:** line chart (last 30 days), x-axis = date, y-axis = KES revenue. Use Recharts or Chart.js.
+
+**Recent Orders Table:** last 10 orders — columns: Order #, Customer, Total, Payment Method, Status, Date, Actions (View).
+
+**Top 5 Best Sellers:** product image + name + units sold + revenue.
+
+---
+
+### `/admin/products` — Product Management
+
+**Products Table:**
+- Columns: Image (thumbnail), Title, Vendor, SKU (first variant), Selling Price, Buying Price, Stock (sum of variant inventories), Status, Actions (Edit, Delete)
+- Search by title or SKU
+- Filter by status, vendor, product_type
+- Bulk select + bulk actions: Delete selected, Change status, Export selected as CSV
+- "Add Product" button (opens form/modal)
+- "Import CSV" button (opens file upload)
+
+**Add / Edit Product Form — mirrors Shopify product schema:**
+```
+BASIC INFO:
+- Title (required)
+- Description (rich text editor — use react-quill or tiptap)
+- Status: Active | Draft | Archived (dropdown)
+- Product Type (text input)
+- Vendor (text input)
+- Tags (tag input, comma-separated)
+
+PRICING:
+- Buying Price (KES) — labeled "Cost Price (internal, not shown to customers)"
+- Selling Price (KES) — labeled "Selling Price (shown to customers)"
+
+IMAGES:
+- Multi-image uploader, drag-and-drop
+- Upload to Supabase Storage bucket 'product-images'
+- Reorderable thumbnails
+
+VARIANTS (dynamic rows — add/remove):
+Each variant row has:
+- Option name (e.g. "Size")
+- Option value (e.g. "50ml")
+- SKU
+- Inventory Quantity
+- Price (overrides selling_price per variant if different)
+- Compare At Price
+
+Save Product button → POST /api/products
+```
+
+**CSV Import Modal:**
+- Drag-and-drop file upload or "Choose File"
+- Preview table showing first 5 rows of parsed CSV
+- Mapping confirmation: "Detected X products, Y variants"
+- "Import All" button → POST /api/products/import-csv
+- Show progress and results: "X products imported successfully, Y failed"
+
+**Inline Price Editing:**
+- Click on any Selling Price cell → becomes editable input → press Enter or blur → auto-saves via PUT /api/products/:id
+
+---
+
+### `/admin/orders` — Order Management
+
+**Orders Table:**
+- Columns: Order #, Date, Customer Name, Phone, Items (count), Total (KES), Payment Method, Payment Status, Order Status, Actions
+- Color-coded status badges
+- **Filters:**
+  - Order status dropdown
+  - Payment status dropdown
+  - Payment method dropdown
+  - Date range picker (from–to)
+  - Search: order # or customer name/phone
+- **Export** button → CSV of filtered results
+
+**Order Detail View (full page or slide-over panel):**
+- Order number + date
+- Items list: image, name, variant, qty, unit price, line total
+- Customer details: name, email, phone
+- Delivery details: recipient name, phone, matatu route, notes
+- Payment: method, status, M-Pesa code (if submitted), Paystack reference
+- Timeline: order status history
+- **Admin Controls:**
+  - Change Order Status dropdown + Save
+  - Mark as Paid button (for manual M-Pesa till verification)
+  - Internal Notes textarea + Save
+- Subtotal, delivery fee, total breakdown
+
+---
+
+### `/admin/customers` — Customer Management
+
+**Customers Table:**
+- Columns: Name, Email, Phone, Total Orders, Total Spent (KES), Joined Date, Actions (View)
+- Search by name, email, or phone
+- Sort by total spent, order count, date joined
+
+**Customer Detail:**
+- Profile info
+- Full order history table
+- Total spent, average order value
+
+---
+
+### `/admin/finances` — Financial Reports
+
+**Date Range Picker** at top — defaults to current month
+
+**Summary KPI Cards:**
+- Gross Revenue (KES)
+- Total Cost / COGS (KES)
+- Net Profit (KES)
+- Profit Margin (%)
+- Total Orders (paid)
+- Average Order Value (KES)
+
+**Revenue vs Profit Chart** — dual line or bar chart, grouped by day or month depending on range
+
+**Orders Breakdown Table:**
+- Columns: Order #, Date, Customer, Items, Revenue (KES), Cost (KES), Profit (KES), Margin %
+- Sortable columns
+- Paginated
+
+**Export to CSV button** → downloads full breakdown for selected date range
+
+---
+
+### `/admin/settings` — Settings Management
+
+All settings stored in Supabase `settings` table. Form saves via PUT `/api/settings/:key`.
+
+**Sections:**
+
+**Contact & Support:**
+- WhatsApp Number (saved as `whatsapp_number`) — note: "This appears on the WhatsApp chat button and checkout confirmation"
+- Contact Email (saved as `contact_email`)
+- Update button → saves to DB, reflects immediately across site
+
+**Store Info:**
+- Shop Name
+- Tagline
+- Announcement Bar Text
+
+**M-Pesa Configuration:**
+- Till Number (saved as `mpesa_till_number`) — note: "Displayed on checkout payment instructions"
+- Update button
+
+**Delivery Fees:**
+- Nairobi CBD fee (KES)
+- Within Nairobi fee (KES)
+- Outside Nairobi — up to 100km (KES)
+- Far Upcountry (KES)
+- Save All Fees button
+
+**Admin Account:**
+- Current admin email (display only)
+- Change Password: current password + new password + confirm new password
+- Update Password button
+
+---
+
+## 🧩 SHARED COMPONENTS TO BUILD
+
+```
+components/
+├── layout/
+│   ├── Header.tsx              — navbar with search, cart, account icons
+│   ├── Footer.tsx              — full 4-column footer
+│   ├── MobileBottomNav.tsx     — mobile bottom navigation
+│   └── AdminSidebar.tsx        — admin panel sidebar
+├── ui/
+│   ├── ProductCard.tsx         — reusable product card
+│   ├── ProductGrid.tsx         — responsive grid of ProductCards
+│   ├── QuickViewModal.tsx      — quick view product modal
+│   ├── CartDrawer.tsx          — slide-out cart drawer
+│   ├── Toast.tsx               — toast notifications
+│   ├── LoadingSkeleton.tsx     — skeleton loading states
+│   ├── Badge.tsx               — status badges (order status, payment status)
+│   ├── Button.tsx              — primary, secondary, outline variants
+│   └── Modal.tsx               — reusable modal wrapper
+├── checkout/
+│   ├── DeliveryForm.tsx
+│   ├── PaymentForm.tsx
+│   └── OrderConfirmation.tsx
+├── admin/
+│   ├── ProductForm.tsx
+│   ├── CSVImport.tsx
+│   ├── OrderDetailPanel.tsx
+│   └── FinanceChart.tsx
+└── WhatsAppButton.tsx          — fixed WhatsApp chat bubble
+```
+
+---
+
+## 🔒 AUTH & MIDDLEWARE
+
+**Backend middleware:**
+```javascript
+// authMiddleware.js — verify JWT
+const authMiddleware = (req, res, next) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) return res.status(401).json({ success: false, message: 'No token' });
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = decoded;
+    next();
+  } catch {
+    return res.status(401).json({ success: false, message: 'Invalid token' });
+  }
+};
+
+// adminMiddleware.js — check role
+const adminMiddleware = (req, res, next) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ success: false, message: 'Admin only' });
+  }
+  next();
+};
+```
+
+**Frontend auth:**
+- Store JWT in localStorage
+- Create `useAuth()` hook: `{ user, login, logout, isAdmin, loading }`
+- Wrap admin pages with `<AdminGuard>` component that redirects to `/account/login` if not admin
+- Wrap account pages with `<AuthGuard>` component
+
+---
+
+## 📦 PACKAGES TO INSTALL
+
+### Backend (`/backend`)
+```json
+{
+  "dependencies": {
+    "express": "^4.18.2",
+    "@supabase/supabase-js": "^2.39.0",
+    "jsonwebtoken": "^9.0.2",
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "helmet": "^7.1.0",
+    "morgan": "^1.10.0",
+    "express-rate-limit": "^7.1.5",
+    "zod": "^3.22.4",
+    "csv-parse": "^5.5.3",
+    "multer": "^1.4.5-lts.1",
+    "axios": "^1.6.2",
+    "dotenv": "^16.3.1"
+  }
+}
+```
+
+### Frontend (`/frontend`)
+```json
+{
+  "dependencies": {
+    "next": "14.0.4",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "@supabase/supabase-js": "^2.39.0",
+    "axios": "^1.6.2",
+    "zustand": "^4.4.7",
+    "react-hot-toast": "^2.4.1",
+    "recharts": "^2.10.3",
+    "react-quill": "^2.0.0",
+    "@paystack/inline-js": "^2.0.0",
+    "react-dropzone": "^14.2.3",
+    "clsx": "^2.0.0",
+    "lucide-react": "^0.303.0"
+  }
+}
+```
+
+---
+
+## 🧠 RECOMMENDATION ENGINE LOGIC
+
+```javascript
+// GET /api/recommendations?product_id=X&user_id=Y&limit=8
+async function getRecommendations(product_id, user_id, limit = 8) {
+  // 1. Get current product details
+  const product = await supabase.from('products').select('*').eq('id', product_id).single();
+  const { tags, vendor, product_type } = product.data;
+
+  // 2. Score all other active products
+  const { data: allProducts } = await supabase.from('products')
+    .select('*').eq('status', 'active').neq('id', product_id);
+
+  const scored = allProducts.map(p => {
+    let score = 0;
+    if (p.vendor === vendor) score += 3;
+    if (p.product_type === product_type) score += 2;
+    const sharedTags = (p.tags || []).filter(t => (tags || []).includes(t));
+    score += sharedTags.length * 1.5;
+    return { ...p, score };
+  }).sort((a, b) => b.score - a.score);
+
+  // 3. If user_id: boost products matching user's browsing history tags
+  if (user_id) {
+    const { data: history } = await supabase.from('browsing_history')
+      .select('product_id').eq('user_id', user_id).order('viewed_at', { ascending: false }).limit(20);
+    // additional weighting logic here
+  }
+
+  return scored.slice(0, limit);
+}
+```
+
+---
+
+## 🚀 DEPLOYMENT CONFIGURATION
+
+### GitHub
+- Initialize git repo at root
+- `.gitignore`: node_modules, .env, .next, dist
+- `README.md` with setup instructions
+
+### Vercel
+- Connect GitHub repo
+- Set **Root Directory** to `frontend`
+- Framework preset: Next.js
+- Add all `NEXT_PUBLIC_*` environment variables
+- Enable automatic deployments on push to `main`
+
+### Render
+- Connect GitHub repo
+- Set **Root Directory** to `backend`
+- Build command: `npm install`
+- Start command: `node index.js`
+- Set all backend environment variables
+- Add health check path: `/health`
+- Enable auto-deploy on push to `main`
+
+### Supabase
+- Create project, run full SQL schema above
+- Create Storage bucket: `product-images` (public bucket)
+- Enable RLS on all tables with policies above
+- Get URL and keys for env vars
+
+---
+
+## ✅ FINAL REQUIREMENTS CHECKLIST
+
+Build all of the following without skipping:
+
+- [ ] All database tables created with RLS policies
+- [ ] Admin user seeded from env vars on backend startup
+- [ ] All frontend pages built and linked
+- [ ] All backend API routes functional
+- [ ] M-Pesa STK push + callback working
+- [ ] M-Pesa manual till code submission working
+- [ ] Paystack card + mobile money integration working
+- [ ] CSV import from Shopify format working
+- [ ] Product recommendations working
+- [ ] Browsing history tracked
+- [ ] Cart persisted in localStorage + synced for logged-in users
+- [ ] Admin panel: dashboard, products, orders, customers, finances, settings
+- [ ] Settings (WhatsApp number, email, till number, delivery fees) editable in admin and reflected site-wide
+- [ ] WhatsApp chat button on bottom-left of every page
+- [ ] Buying price hidden from all customer-facing pages and APIs
+- [ ] Delivery via matatu route clearly explained at checkout
+- [ ] Mobile bottom navigation bar
+- [ ] Full footer with all links
+- [ ] Loading skeletons on product grids
+- [ ] Toast notifications for all user actions
+- [ ] SEO meta tags on all product pages
+- [ ] robots.txt and sitemap.xml
+- [ ] 404 and 500 error pages
+- [ ] All currency displayed as KES X,XXX
+- [ ] Kenyan phone number validation (+2547XXXXXXXX or 07XXXXXXXX)
+- [ ] All API inputs validated with Zod
+- [ ] Rate limiting on payment routes
+- [ ] CORS and Helmet configured
+- [ ] GitHub repo structured as monorepo
+- [ ] Vercel and Render deployment configs correct
+
+Do not stop until every item on this checklist is implemented.
+```
+
+---
+
+Paste this entire prompt into Replit Agent and it will have everything it needs to scaffold the complete system. You can also break it into phases by telling the agent *"Start with Phase 1: database schema + backend auth + product APIs"* and work forward from there.

@@ -137,7 +137,7 @@ export default function AdminOrdersPage() {
               <div><p className="text-gray-400 text-xs mb-1">Customer</p><p className="font-medium">{selectedOrder.customer_name as string}</p></div>
               <div><p className="text-gray-400 text-xs mb-1">Phone</p><p>{selectedOrder.customer_phone as string}</p></div>
               <div><p className="text-gray-400 text-xs mb-1">Email</p><p>{(selectedOrder.customer_email as string) || '—'}</p></div>
-              <div><p className="text-gray-400 text-xs mb-1">Matatu Route</p><p>{(selectedOrder.delivery_matatu_route as string) || '—'}</p></div>
+              <div><p className="text-gray-400 text-xs mb-1">Pickup Location</p><p>{(selectedOrder.delivery_matatu_route as string) || '—'}</p></div>
               <div><p className="text-gray-400 text-xs mb-1">Payment Method</p><p className="capitalize">{(selectedOrder.payment_method as string)?.replace('_', ' ')}</p></div>
               <div><p className="text-gray-400 text-xs mb-1">M-Pesa Code</p><p className="font-mono">{(selectedOrder.mpesa_code as string) || '—'}</p></div>
             </div>

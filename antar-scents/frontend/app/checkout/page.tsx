@@ -172,14 +172,14 @@ export default function CheckoutPage() {
               {[
                 { label: 'Recipient Name', key: 'delivery_name', placeholder: 'Who should receive the package?' },
                 { label: 'Recipient Phone', key: 'delivery_phone', placeholder: 'Recipient phone number' },
-                { label: 'Matatu Route / Stage *', key: 'delivery_matatu_route', placeholder: "e.g. '23 Githurai Stage', '111 Rongai CBD'" },
+                { label: 'Nearest Pickup Location *', key: 'delivery_matatu_route', placeholder: "e.g. 'CBD', 'Westgate Mall', 'Nyeri Town'" },
               ].map(f => (
                 <div key={f.key}>
                   <label className="block text-sm font-medium text-gray-300 mb-1.5">{f.label}</label>
                   <input type="text" value={(form as Record<string, string>)[f.key]} onChange={e => setForm(prev => ({ ...prev, [f.key]: e.target.value }))} placeholder={f.placeholder} className="input-dark" />
                 </div>
               ))}
-              <p className="text-xs text-gray-500">Enter the matatu route number and stage name nearest to you. We'll deliver to that stage.</p>
+              <p className="text-xs text-gray-500">Enter your nearest pickup location. Same-day delivery in Nairobi, Kenya-wide and worldwide shipping available.</p>
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-1.5">Delivery Zone *</label>
                 <select value={deliveryZone} onChange={e => setDeliveryZone(parseInt(e.target.value))} className="input-dark">
@@ -320,7 +320,7 @@ export default function CheckoutPage() {
               <Link href={`/track/${orderNumber}`} className="btn-outline-gold flex-1 py-3 text-sm font-semibold">Track My Order</Link>
               <Link href="/shop" className="btn-gold flex-1 py-3 text-sm font-semibold">Continue Shopping</Link>
             </div>
-            <a href={`https://wa.me/254922748842?text=Hi! I just placed order %23${orderNumber}. Can you confirm?`} target="_blank" rel="noopener noreferrer"
+            <a href={`https://wa.me/254792274842?text=Hi! I just placed order %23${orderNumber}. Can you confirm?`} target="_blank" rel="noopener noreferrer"
               className="text-green-400 hover:text-green-300 text-sm transition-colors">
               💬 Questions? Chat with us on WhatsApp
             </a>

@@ -20,14 +20,22 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: { default: 'Antar Scents — Discover Your Signature Scent', template: '%s | Antar Scents' },
-  description: 'Premium fragrances delivered across Kenya. Genuine products, countrywide delivery, secure payments via M-Pesa and card.',
-  keywords: ['perfume', 'fragrance', 'Kenya', 'Nairobi', 'cologne', 'scent', 'antar scents'],
+  description: 'Premium fragrances delivered worldwide. Same-day delivery in Nairobi, fast delivery across Kenya and internationally. Genuine products, secure payments via M-Pesa and card.',
+  keywords: ['perfume', 'fragrance', 'Kenya', 'Nairobi', 'cologne', 'scent', 'antar scents', 'worldwide delivery'],
+  icons: {
+    icon: [
+      { url: '/favicon.svg', type: 'image/svg+xml' },
+    ],
+    shortcut: '/favicon.svg',
+    apple: '/favicon.svg',
+  },
   openGraph: {
-    title: 'Antar Scents — Premium Fragrances in Kenya',
-    description: 'Discover your signature scent. Genuine perfumes delivered countrywide.',
+    title: 'Antar Scents — Premium Fragrances Worldwide',
+    description: 'Discover your signature scent. Genuine perfumes. Same-day Nairobi, Kenya-wide & worldwide delivery.',
     type: 'website',
     locale: 'en_KE',
     siteName: 'Antar Scents',
+    images: [{ url: '/logo.svg', width: 320, height: 80, alt: 'Antar Scents' }],
   },
   robots: { index: true, follow: true },
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://antarscents.shop'),

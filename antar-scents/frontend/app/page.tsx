@@ -22,7 +22,7 @@ const CATEGORIES = [
 ];
 
 const TESTIMONIALS = [
-  { name: 'Jane M.', location: 'Mombasa', rating: 5, text: 'Absolutely love the fragrance! Delivered to my matatu stage the next day. Genuine product, exactly as described.' },
+  { name: 'Jane M.', location: 'Mombasa', rating: 5, text: 'Absolutely love the fragrance! Delivered same day right to my pickup location. Genuine product, exactly as described.' },
   { name: 'David K.', location: 'Nakuru', rating: 5, text: 'Fast delivery and great packaging. The perfume smells amazing and has great longevity. Will definitely order again!' },
   { name: 'Amina S.', location: 'Nairobi', rating: 5, text: 'Best online perfume shop in Kenya! Easy M-Pesa payment, quick delivery. Antar Scents never disappoints.' },
 ];
@@ -47,7 +47,7 @@ export default function HomePage() {
     }).finally(() => setLoading(false));
   }, []);
 
-  const announcementBar = settings.announcement_bar || '🚚 Free delivery on orders above KES 5,000 | 📞 +254922748842';
+  const announcementBar = settings.announcement_bar || '🚚 Free delivery on orders above KES 5,000 | 📞 +254792274842';
 
   return (
     <div className="min-h-screen bg-black text-white">
@@ -72,7 +72,7 @@ export default function HomePage() {
             <span className="gold-text italic">Signature Scent</span>
           </h1>
           <p className="text-gray-300 text-lg sm:text-xl mb-10 max-w-xl mx-auto leading-relaxed">
-            Premium fragrances delivered across Kenya. Genuine products, fast delivery to your matatu stage.
+            Premium fragrances delivered worldwide. Same-day delivery in Nairobi, fast delivery across Kenya and internationally.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link href="/shop" className="btn-gold px-10 py-4 text-base font-semibold inline-flex items-center gap-2 justify-center">
@@ -147,7 +147,7 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-6">
           {[
             { icon: '✅', title: 'Genuine Products', desc: 'Authentic fragrances, guaranteed' },
-            { icon: '🚚', title: 'Countrywide Delivery', desc: 'Delivered to your matatu stage' },
+            { icon: '🚚', title: 'Worldwide Delivery', desc: 'Same-day Nairobi · Kenya-wide · International' },
             { icon: '💳', title: 'Secure Payments', desc: 'M-Pesa, Visa & Mastercard' },
             { icon: '💬', title: 'WhatsApp Support', desc: 'We respond instantly' },
           ].map(b => (
@@ -169,7 +169,7 @@ export default function HomePage() {
               { step: '01', icon: '🛍️', title: 'Browse Scents', desc: 'Explore hundreds of genuine fragrances' },
               { step: '02', icon: '🛒', title: 'Add to Cart', desc: 'Select your size and quantity' },
               { step: '03', icon: '💚', title: 'Pay via M-Pesa', desc: 'Quick and secure payment' },
-              { step: '04', icon: '🚌', title: 'Delivered to You', desc: 'To your matatu stage countrywide' },
+              { step: '04', icon: '🚚', title: 'Delivered to You', desc: 'Same-day Nairobi, Kenya-wide & worldwide' },
             ].map(s => (
               <div key={s.step} className="text-center relative">
                 <div className="w-16 h-16 bg-gold/10 border border-gold/30 rounded-full flex items-center justify-center text-2xl mx-auto mb-4">{s.icon}</div>

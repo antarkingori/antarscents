@@ -22,25 +22,32 @@ function CallbackHandler() {
   useEffect(() => {
     const handle = async () => {
       try {
-        // Supabase puts the session in the URL fragment; getSession picks it up automatically
-        const { data: { session }, error } = await supabase.auth.getSession();
-
-        const type = searchParams.get('type') || (window.location.hash.includes('type=recovery') ? 'recovery' : null);
-
-        if (error || !session) {
+        // Supabase returns error params if user cancels or something goes wrong
+        const oauthError = searchParams.get('error');
+        const oauthErrorDesc = searchParams.get('error_description');
+        if (oauthError) {
           setStatus('error');
-          setMessage('Authentication failed. The link may have expired.');
+          setMessage(oauthErrorDesc || 'Authentication was cancelled or failed.');
           return;
         }
 
-        if (type === 'recovery') {
-          // Redirect to reset-password — Supabase session is set, but we use our own flow
-          // Extract token from Supabase session and redirect
-          router.replace('/account/reset-password?supabase=1');
+        // Supabase v2 uses PKCE by default — auth code arrives as ?code= query param
+        const code = searchParams.get('code');
+        if (!code) {
+          setStatus('error');
+          setMessage('No authentication code received. Please try signing in again.');
           return;
         }
 
-        // Google OAuth: exchange Supabase access_token for our backend JWT
+        // Exchange the PKCE code for a real session
+        const { data: { session }, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+        if (exchangeError || !session) {
+          setStatus('error');
+          setMessage(exchangeError?.message || 'Failed to complete sign-in. The link may have expired.');
+          return;
+        }
+
+        // Swap the Supabase access_token for our own backend JWT
         const { data } = await axios.post(`${API_URL}/api/auth/google`, {
           access_token: session.access_token,
         });
@@ -49,9 +56,10 @@ function CallbackHandler() {
         setStatus('success');
         setMessage('Signed in successfully! Redirecting...');
         setTimeout(() => router.replace('/account'), 1500);
-      } catch {
+      } catch (err: unknown) {
+        const msg = (err as { response?: { data?: { message?: string } } }).response?.data?.message;
         setStatus('error');
-        setMessage('Sign-in failed. Please try again.');
+        setMessage(msg || 'Sign-in failed. Please try again.');
       }
     };
 
@@ -79,7 +87,7 @@ function CallbackHandler() {
           <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mx-auto">
             <XCircle size={36} className="text-red-400" />
           </div>
-          <p className="text-gray-300">{message}</p>
+          <p className="text-gray-300 text-sm">{message}</p>
           <Link href="/account/login" className="btn-gold inline-flex px-6 py-3 text-sm font-semibold mt-2">
             Back to Sign In
           </Link>

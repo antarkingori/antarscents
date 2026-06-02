@@ -68,7 +68,7 @@ export default function AdminFinancesPage() {
             <div className="bg-[#111] border border-[#1A1A1A] rounded-xl p-6">
               <h2 className="font-semibold mb-6">Revenue vs Profit</h2>
               <ResponsiveContainer width="100%" height={260}>
-                <BarChart data={data.chart_data as unknown[]}>
+                <BarChart data={data?.chart_data as unknown[]}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#1A1A1A" />
                   <XAxis dataKey="date" tick={{ fill: '#666', fontSize: 10 }} tickFormatter={v => v.slice(5)} />
                   <YAxis tick={{ fill: '#666', fontSize: 10 }} tickFormatter={v => `${(v/1000).toFixed(0)}k`} />

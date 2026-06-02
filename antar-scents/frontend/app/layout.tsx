@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
-import { Toaster } from 'react-hot-toast';
-import WhatsAppButton from '@/components/WhatsAppButton';
+import Providers from '@/components/Providers';
 
 export const metadata: Metadata = {
   title: { default: 'Antar Scents — Discover Your Signature Scent', template: '%s | Antar Scents' },
@@ -24,17 +23,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
       </head>
-      <body className="bg-black text-white font-inter antialiased">
-        {children}
-        <WhatsAppButton />
-        <Toaster
-          position="top-right"
-          toastOptions={{
-            style: { background: '#1A1A1A', color: '#fff', border: '1px solid #C9A84C' },
-            success: { iconTheme: { primary: '#C9A84C', secondary: '#000' } },
-          }}
-        />
+      <body className="bg-black text-white antialiased">
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

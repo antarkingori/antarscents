@@ -1,16 +1,35 @@
 'use client';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import MobileBottomNav from '@/components/layout/MobileBottomNav';
 import { useCartStore } from '@/store/cart';
+import { settingsApi } from '@/lib/api';
 import { formatKES } from '@/lib/utils';
 import { Minus, Plus, Trash2, ShoppingBag, ArrowRight } from 'lucide-react';
 
+const DELIVERY_OPTIONS = [
+  { label: 'Nairobi CBD', defaultFee: 200, key: 'delivery_fee_cbd' },
+  { label: 'Within Nairobi', defaultFee: 300, key: 'delivery_fee_nairobi' },
+  { label: 'Outside Nairobi (up to 100km)', defaultFee: 500, key: 'delivery_fee_outside' },
+  { label: 'Far Upcountry / International', defaultFee: 1000, key: 'delivery_fee_far' },
+];
+
 export default function CartPage() {
   const { items, removeItem, updateQuantity, subtotal, clearCart } = useCartStore();
+  const [deliveryZone, setDeliveryZone] = useState(0);
+  const [settings, setSettings] = useState<Record<string, string>>({});
   const DELIVERY_THRESHOLD = 5000;
+
+  useEffect(() => {
+    settingsApi.getAll().then(r => setSettings(r.data.data || {})).catch(() => {});
+  }, []);
+
+  const zone = DELIVERY_OPTIONS[deliveryZone];
+  const deliveryFee = zone ? (parseInt(settings[zone.key] || '') || zone.defaultFee) : 200;
+  const estimatedTotal = subtotal + deliveryFee;
 
   return (
     <div className="min-h-screen bg-black text-white">
@@ -72,12 +91,30 @@ export default function CartPage() {
                   </div>
                 )}
                 <div className="space-y-2 text-sm">
-                  <div className="flex justify-between text-gray-300"><span>Subtotal ({items.reduce((s, i) => s + i.quantity, 0)} items)</span><span>{formatKES(subtotal)}</span></div>
-                  <div className="flex justify-between text-gray-300"><span>Delivery Fee</span><span className="text-gray-400">Calculated at checkout</span></div>
+                  <div className="flex justify-between text-gray-300">
+                    <span>Subtotal ({items.reduce((s, i) => s + i.quantity, 0)} items)</span>
+                    <span>{formatKES(subtotal)}</span>
+                  </div>
                 </div>
-                <div className="flex justify-between font-bold text-lg border-t border-[#1A1A1A] pt-4">
-                  <span>Total</span><span className="text-gold">{formatKES(subtotal)}</span>
+                <div>
+                  <label className="block text-xs font-medium text-gray-400 mb-1.5">Estimate Delivery Zone</label>
+                  <select value={deliveryZone} onChange={e => setDeliveryZone(parseInt(e.target.value))} className="input-dark text-sm">
+                    {DELIVERY_OPTIONS.map((o, i) => (
+                      <option key={i} value={i}>{o.label} — {formatKES(parseInt(settings[o.key] || '') || o.defaultFee)}</option>
+                    ))}
+                  </select>
                 </div>
+                <div className="space-y-1.5 text-sm border-t border-[#1A1A1A] pt-3">
+                  <div className="flex justify-between text-gray-300">
+                    <span>Delivery ({zone?.label})</span>
+                    <span>{formatKES(deliveryFee)}</span>
+                  </div>
+                  <div className="flex justify-between font-bold text-base pt-1">
+                    <span>Estimated Total</span>
+                    <span className="text-gold">{formatKES(estimatedTotal)}</span>
+                  </div>
+                </div>
+                <p className="text-xs text-gray-500">Final total confirmed at checkout after selecting your exact delivery zone.</p>
                 <Link href="/checkout" className="btn-gold w-full py-3.5 text-center font-semibold flex items-center justify-center gap-2">
                   Checkout <ArrowRight size={18} />
                 </Link>

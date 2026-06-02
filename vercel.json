@@ -1,0 +1,7 @@
+{
+  "buildCommand": "cd antar-scents/frontend && pnpm run build",
+  "outputDirectory": "antar-scents/frontend/.next",
+  "installCommand": "pnpm install --frozen-lockfile",
+  "framework": "nextjs",
+  "regions": ["iad1"]
+}

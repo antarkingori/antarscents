@@ -53,6 +53,20 @@ export default function CheckoutPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Auto-fill from logged-in user (Zustand may rehydrate after initial render)
+  useEffect(() => {
+    if (user) {
+      setForm(prev => ({
+        ...prev,
+        customer_name: prev.customer_name || user.full_name || '',
+        customer_email: prev.customer_email || user.email || '',
+        customer_phone: prev.customer_phone || user.phone || '',
+        delivery_name: prev.delivery_name || user.full_name || '',
+        delivery_phone: prev.delivery_phone || user.phone || '',
+      }));
+    }
+  }, [user]);
+
   // Delivery fee: use admin-configured value from settings if set, else default
   const zone = DELIVERY_OPTIONS[deliveryZone];
   const deliveryFee = zone ? (parseInt(settings[zone.key] || '') || zone.defaultFee) : 200;

@@ -8,7 +8,7 @@ const router = express.Router();
 
 const orderSchema = z.object({
   customer_name: z.string().min(2),
-  customer_email: z.string().email().optional(),
+  customer_email: z.string().email().optional().nullable().or(z.literal('')),
   customer_phone: z.string().regex(/^(\+?254|0)[17]\d{8}$/),
   delivery_name: z.string().optional(),
   delivery_phone: z.string().optional(),
@@ -18,25 +18,68 @@ const orderSchema = z.object({
     product_id: z.string(),
     title: z.string(),
     variant: z.string().optional(),
-    quantity: z.number().int().positive(),
-    unit_price: z.number().positive(),
+    quantity: z.number().int().positive().max(99),
+    unit_price: z.number().optional(), // accepted but ignored — fetched from DB
     image: z.string().optional()
-  })),
-  subtotal: z.number().positive(),
-  delivery_fee: z.number().min(0),
-  total: z.number().positive(),
-  payment_method: z.enum(['mpesa_till', 'mpesa_stk', 'paystack_card', 'paystack_mobile'])
+  })).min(1),
+  delivery_fee: z.number().min(0).max(50000),
+  payment_method: z.enum(['mpesa_till', 'mpesa_stk', 'paystack_card', 'paystack_mobile']),
+  // subtotal/total accepted but ignored — computed server-side from DB prices
+  subtotal: z.number().optional(),
+  total: z.number().optional(),
 });
 
 router.post('/', optionalAuth, async (req, res) => {
   try {
     const data = orderSchema.parse(req.body);
+
+    // Fetch actual selling prices from DB — never trust client-provided prices
+    const productIds = [...new Set(data.items.map(i => i.product_id))];
+    const { data: products, error: pErr } = await supabase
+      .from('products')
+      .select('id, selling_price, title, status, images')
+      .in('id', productIds);
+    if (pErr) throw pErr;
+
+    const productMap = Object.fromEntries((products || []).map(p => [p.id, p]));
+
+    const verifiedItems = [];
+    for (const item of data.items) {
+      const product = productMap[item.product_id];
+      if (!product) return res.status(400).json({ success: false, message: 'One or more products were not found' });
+      if (product.status !== 'active') return res.status(400).json({ success: false, message: `"${product.title}" is no longer available` });
+      verifiedItems.push({
+        product_id: item.product_id,
+        title: item.title || product.title,
+        variant: item.variant || null,
+        quantity: item.quantity,
+        unit_price: product.selling_price,
+        image: item.image || product.images?.[0]?.src || null,
+      });
+    }
+
+    // Compute totals server-side from verified DB prices
+    const subtotal = verifiedItems.reduce((sum, i) => sum + i.unit_price * i.quantity, 0);
+    const total = subtotal + data.delivery_fee;
+
     const orderData = {
-      ...data,
+      customer_name: data.customer_name,
+      customer_email: data.customer_email || null,
+      customer_phone: data.customer_phone,
+      delivery_name: data.delivery_name || null,
+      delivery_phone: data.delivery_phone || null,
+      delivery_matatu_route: data.delivery_matatu_route || null,
+      delivery_notes: data.delivery_notes || null,
+      items: verifiedItems,
+      subtotal,
+      delivery_fee: data.delivery_fee,
+      total,
+      payment_method: data.payment_method,
       user_id: req.user?.id || null,
       payment_status: 'pending',
-      order_status: 'pending'
+      order_status: 'pending',
     };
+
     const { data: order, error } = await supabase.from('orders').insert(orderData).select().single();
     if (error) throw error;
     res.status(201).json({ success: true, data: order });

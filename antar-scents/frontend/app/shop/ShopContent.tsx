@@ -7,10 +7,9 @@ import MobileBottomNav from '@/components/layout/MobileBottomNav';
 import ProductCard, { Product } from '@/components/ui/ProductCard';
 import QuickViewModal from '@/components/ui/QuickViewModal';
 import { ProductGridSkeleton } from '@/components/ui/LoadingSkeleton';
-import { productsApi } from '@/lib/api';
+import { productsApi, categoriesApi } from '@/lib/api';
 import { SlidersHorizontal, ChevronDown, X } from 'lucide-react';
 
-const CATEGORIES = ['men', 'women', 'unisex', 'gift-sets', 'luxury', 'travel-size'];
 const SORT_OPTIONS = [
   { value: '', label: 'Featured' },
   { value: 'price_asc', label: 'Price: Low to High' },
@@ -22,6 +21,7 @@ export default function ShopContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<{ id: string; name: string; slug: string }[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
@@ -57,6 +57,10 @@ export default function ShopContent() {
 
   useEffect(() => { fetchProducts(); }, [fetchProducts]);
 
+  useEffect(() => {
+    categoriesApi.getAll().then(({ data }) => setCategories(data.data || [])).catch(() => {});
+  }, []);
+
   const updateFilter = (key: string, value: string) => {
     setFilters(f => ({ ...f, [key]: value }));
     setPage(1);
@@ -75,12 +79,15 @@ export default function ShopContent() {
       <div>
         <h3 className="text-sm font-semibold mb-3 text-gray-300 uppercase tracking-wide">Category</h3>
         <div className="space-y-2">
-          {CATEGORIES.map(cat => (
-            <label key={cat} className="flex items-center gap-2 cursor-pointer group">
-              <input type="radio" name="category" value={cat} checked={filters.category === cat}
-                onChange={() => updateFilter('category', cat === filters.category ? '' : cat)}
+          {categories.length === 0 && (
+            <p className="text-gray-500 text-xs">Loading categories...</p>
+          )}
+          {categories.map(cat => (
+            <label key={cat.id} className="flex items-center gap-2 cursor-pointer group">
+              <input type="radio" name="category" value={cat.slug} checked={filters.category === cat.slug}
+                onChange={() => updateFilter('category', cat.slug === filters.category ? '' : cat.slug)}
                 className="accent-gold" />
-              <span className="text-sm text-gray-400 group-hover:text-gold transition-colors capitalize">{cat.replace('-', ' ')}</span>
+              <span className="text-sm text-gray-400 group-hover:text-gold transition-colors">{cat.name}</span>
             </label>
           ))}
         </div>

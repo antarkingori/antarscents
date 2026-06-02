@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
 import Header from '@/components/layout/Header';
@@ -29,6 +29,7 @@ export default function ProductPage() {
   const [activeVariant, setActiveVariant] = useState(0);
   const [qty, setQty] = useState(1);
   const [activeTab, setActiveTab] = useState('description');
+  const router = useRouter();
   const { addItem, openCart } = useCartStore();
   const { user } = useAuthStore();
 
@@ -72,6 +73,11 @@ export default function ProductPage() {
     addItem({ product_id: product.id, title: product.title, handle: product.handle, unit_price: price, quantity: qty, image: images[0]?.src, variant: (variant as Record<string, string>)?.option_value });
     toast.success(`Added ${qty} × ${product.title} to cart`);
     openCart();
+  };
+
+  const handleBuyNow = () => {
+    addItem({ product_id: product.id, title: product.title, handle: product.handle, unit_price: price, quantity: qty, image: images[0]?.src, variant: (variant as Record<string, string>)?.option_value });
+    router.push('/checkout');
   };
 
   return (
@@ -140,9 +146,9 @@ export default function ProductPage() {
               <button onClick={handleAddToCart} className="btn-gold w-full py-4 text-base font-semibold flex items-center justify-center gap-2">
                 <ShoppingCart size={20} /> Add to Cart
               </button>
-              <Link href="/checkout" className="btn-outline-gold w-full py-4 text-base font-semibold flex items-center justify-center">
+              <button onClick={handleBuyNow} className="btn-outline-gold w-full py-4 text-base font-semibold flex items-center justify-center">
                 Buy Now
-              </Link>
+              </button>
             </div>
 
             <div className="flex items-start gap-3 bg-[#111] border border-[#1A1A1A] rounded-xl p-4">
@@ -153,7 +159,7 @@ export default function ProductPage() {
               </div>
             </div>
 
-            <a href="https://wa.me/254792274842?text=${encodeURIComponent('Hi! I\'d like to ask about this product.')}" target="_blank" rel="noopener noreferrer"
+            <a href={`https://wa.me/254792274842?text=${encodeURIComponent(`Hi! I'd like to ask about: ${product.title}`)}`} target="_blank" rel="noopener noreferrer"
               className="flex items-center gap-2 text-green-400 hover:text-green-300 text-sm transition-colors">
               <span>💬</span> Ask about this product on WhatsApp
             </a>

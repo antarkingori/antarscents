@@ -11,10 +11,10 @@ import { Check, Copy, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const DELIVERY_OPTIONS = [
-  { label: 'Nairobi CBD', fee: 200, key: 'delivery_fee_cbd' },
-  { label: 'Within Nairobi', fee: 300, key: 'delivery_fee_nairobi' },
-  { label: 'Outside Nairobi (up to 100km)', fee: 500, key: 'delivery_fee_outside' },
-  { label: 'Far Upcountry', fee: 1000, key: 'delivery_fee_far' },
+  { label: 'Nairobi CBD', defaultFee: 200, key: 'delivery_fee_cbd' },
+  { label: 'Within Nairobi', defaultFee: 300, key: 'delivery_fee_nairobi' },
+  { label: 'Outside Nairobi (up to 100km)', defaultFee: 500, key: 'delivery_fee_outside' },
+  { label: 'Far Upcountry / International', defaultFee: 1000, key: 'delivery_fee_far' },
 ];
 
 type PaymentMethod = 'mpesa_till' | 'mpesa_stk' | 'paystack_card' | 'paystack_mobile';
@@ -28,6 +28,9 @@ export default function CheckoutPage() {
   const [loading, setLoading] = useState(false);
   const [orderId, setOrderId] = useState<string | null>(null);
   const [orderNumber, setOrderNumber] = useState<number | null>(null);
+  // Server-verified totals — set after order is created
+  const [orderTotal, setOrderTotal] = useState<number | null>(null);
+  const [orderSubtotal, setOrderSubtotal] = useState<number | null>(null);
   const [paymentTab, setPaymentTab] = useState<PaymentMethod>('mpesa_till');
   const [mpesaCode, setMpesaCode] = useState('');
   const [copied, setCopied] = useState(false);
@@ -47,29 +50,49 @@ export default function CheckoutPage() {
   useEffect(() => {
     settingsApi.getAll().then(r => setSettings(r.data.data || {})).catch(() => {});
     if (items.length === 0 && step === 1) router.push('/cart');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const deliveryFee = DELIVERY_OPTIONS[deliveryZone]?.fee || 200;
-  const total = subtotal + deliveryFee;
+  // Delivery fee: use admin-configured value from settings if set, else default
+  const zone = DELIVERY_OPTIONS[deliveryZone];
+  const deliveryFee = zone ? (parseInt(settings[zone.key] || '') || zone.defaultFee) : 200;
+
+  // Client-side estimate (step 1 display). After order creation, use server-verified amounts.
+  const estimatedTotal = subtotal + deliveryFee;
   const tillNumber = settings.mpesa_till_number || '000000';
+
+  // The amount to charge — server-verified after order creation, estimate before
+  const chargeTotal = orderTotal ?? estimatedTotal;
 
   const handleDeliverySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateKenyanPhone(form.customer_phone)) {
-      toast.error('Please enter a valid Kenyan phone number');
+      toast.error('Please enter a valid Kenyan phone number (07XX or 01XX)');
       return;
     }
     setLoading(true);
     try {
       const { data } = await ordersApi.create({
-        ...form, items: items.map(i => ({ product_id: i.product_id, title: i.title, variant: i.variant, quantity: i.quantity, unit_price: i.unit_price, image: i.image })),
-        subtotal, delivery_fee: deliveryFee, total, payment_method: paymentTab
+        ...form,
+        customer_email: form.customer_email || undefined,
+        items: items.map(i => ({
+          product_id: i.product_id,
+          title: i.title,
+          variant: i.variant,
+          quantity: i.quantity,
+          image: i.image,
+        })),
+        delivery_fee: deliveryFee,
+        payment_method: paymentTab,
       });
       setOrderId(data.data.id);
       setOrderNumber(data.data.order_number);
+      // Use server-computed prices going forward
+      setOrderTotal(data.data.total);
+      setOrderSubtotal(data.data.subtotal);
       setStep(2);
     } catch (err: unknown) {
-      toast.error((err as { response?: { data?: { message?: string } } }).response?.data?.message || 'Failed to create order');
+      toast.error((err as { response?: { data?: { message?: string } } }).response?.data?.message || 'Failed to create order. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -87,7 +110,7 @@ export default function CheckoutPage() {
       setStep(3);
       toast.success('Order confirmed!');
     } catch {
-      toast.error('Failed to submit code');
+      toast.error('Failed to submit code. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -96,7 +119,7 @@ export default function CheckoutPage() {
   const handleStkPush = async () => {
     setLoading(true);
     try {
-      await paymentsApi.stkPush(form.customer_phone, total, orderId!);
+      await paymentsApi.stkPush(form.customer_phone, chargeTotal, orderId!);
       toast.success('Payment request sent to your phone. Enter your M-Pesa PIN to confirm.');
       setStkPolling(true);
       let attempts = 0;
@@ -118,7 +141,7 @@ export default function CheckoutPage() {
   const handlePaystack = async () => {
     setLoading(true);
     try {
-      const { data } = await paymentsApi.initPaystack(form.customer_email || `order-${orderId}@antarscents.shop`, total, orderId!);
+      const { data } = await paymentsApi.initPaystack(form.customer_email || `order-${orderId}@antarscents.shop`, chargeTotal, orderId!);
       window.location.href = data.data.authorization_url;
     } catch {
       toast.error('Failed to initialize payment');
@@ -132,6 +155,35 @@ export default function CheckoutPage() {
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
+
+  const OrderSummaryPanel = ({ showVerified = false }: { showVerified?: boolean }) => (
+    <div className="bg-[#111] rounded-xl border border-[#1A1A1A] p-5 space-y-4 sticky top-24">
+      <h3 className="font-semibold">Order Summary</h3>
+      <div className="space-y-2 max-h-64 overflow-y-auto">
+        {items.map(item => (
+          <div key={`${item.product_id}-${item.variant}`} className="flex justify-between text-sm gap-2">
+            <span className="text-gray-300 truncate">{item.title} × {item.quantity}</span>
+            <span className="text-white font-medium flex-shrink-0">{formatKES(item.unit_price * item.quantity)}</span>
+          </div>
+        ))}
+      </div>
+      <hr className="border-[#1A1A1A]" />
+      <div className="space-y-1.5 text-sm">
+        <div className="flex justify-between text-gray-300">
+          <span>Subtotal</span>
+          <span>{formatKES(showVerified ? (orderSubtotal ?? subtotal) : subtotal)}</span>
+        </div>
+        <div className="flex justify-between text-gray-300">
+          <span>Delivery ({zone?.label})</span>
+          <span>{formatKES(deliveryFee)}</span>
+        </div>
+        <div className="flex justify-between font-bold text-base pt-1 border-t border-[#1A1A1A] mt-2">
+          <span>Total</span>
+          <span className="text-gold">{formatKES(showVerified ? chargeTotal : estimatedTotal)}</span>
+        </div>
+      </div>
+    </div>
+  );
 
   const StepIndicator = () => (
     <div className="flex items-center justify-center gap-4 mb-10">
@@ -183,38 +235,28 @@ export default function CheckoutPage() {
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-1.5">Delivery Zone *</label>
                 <select value={deliveryZone} onChange={e => setDeliveryZone(parseInt(e.target.value))} className="input-dark">
-                  {DELIVERY_OPTIONS.map((o, i) => <option key={i} value={i}>{o.label} — {formatKES(o.fee)}</option>)}
+                  {DELIVERY_OPTIONS.map((o, i) => (
+                    <option key={i} value={i}>{o.label} — {formatKES(parseInt(settings[o.key] || '') || o.defaultFee)}</option>
+                  ))}
                 </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1.5">Payment Method</label>
+                <div className="flex gap-2 flex-wrap">
+                  {([['mpesa_till', '💚 M-Pesa Till'], ['mpesa_stk', '📱 STK Push'], ['paystack_card', '💳 Card/Mobile']] as const).map(([val, label]) => (
+                    <button key={val} type="button" onClick={() => setPaymentTab(val)} className={`px-4 py-2 rounded-lg text-sm font-medium border transition-all ${paymentTab === val ? 'border-gold bg-gold/10 text-gold' : 'border-[#333] text-gray-400 hover:border-gold/30'}`}>{label}</button>
+                  ))}
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-1.5">Additional Notes</label>
                 <textarea value={form.delivery_notes} onChange={e => setForm(prev => ({ ...prev, delivery_notes: e.target.value }))} className="input-dark min-h-[80px] resize-none" placeholder="Any special instructions?" />
               </div>
               <button type="submit" disabled={loading} className="btn-gold w-full py-4 font-semibold flex items-center justify-center gap-2 disabled:opacity-50">
-                {loading ? <><Loader2 size={18} className="animate-spin" /> Processing...</> : 'Continue to Payment'}
+                {loading ? <><Loader2 size={18} className="animate-spin" /> Processing...</> : `Continue to Payment — ${formatKES(estimatedTotal)}`}
               </button>
             </form>
-            <div className="h-fit">
-              <div className="bg-[#111] rounded-xl border border-[#1A1A1A] p-5 space-y-4 sticky top-24">
-                <h3 className="font-semibold">Order Summary</h3>
-                <div className="space-y-2 max-h-64 overflow-y-auto">
-                  {items.map(item => (
-                    <div key={`${item.product_id}-${item.variant}`} className="flex justify-between text-sm gap-2">
-                      <span className="text-gray-300 truncate">{item.title} × {item.quantity}</span>
-                      <span className="text-white font-medium flex-shrink-0">{formatKES(item.unit_price * item.quantity)}</span>
-                    </div>
-                  ))}
-                </div>
-                <hr className="border-[#1A1A1A]" />
-                <div className="space-y-1.5 text-sm">
-                  <div className="flex justify-between text-gray-300"><span>Subtotal</span><span>{formatKES(subtotal)}</span></div>
-                  <div className="flex justify-between text-gray-300"><span>Delivery</span><span>{formatKES(deliveryFee)}</span></div>
-                  <div className="flex justify-between font-bold text-base pt-1 border-t border-[#1A1A1A] mt-2">
-                    <span>Total</span><span className="text-gold">{formatKES(total)}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
+            <div className="h-fit"><OrderSummaryPanel /></div>
           </div>
         )}
 
@@ -223,8 +265,8 @@ export default function CheckoutPage() {
             <div className="lg:col-span-2 space-y-6">
               <h2 className="font-playfair text-2xl font-bold">Payment</h2>
               <div className="flex gap-2 flex-wrap">
-                {[['mpesa_till', '💚 M-Pesa Till'], ['mpesa_stk', '📱 STK Push'], ['paystack_card', '💳 Card/Mobile']].map(([val, label]) => (
-                  <button key={val} onClick={() => setPaymentTab(val as PaymentMethod)} className={`px-4 py-2 rounded-lg text-sm font-medium border transition-all ${paymentTab === val ? 'border-gold bg-gold/10 text-gold' : 'border-[#333] text-gray-400 hover:border-gold/30'}`}>{label}</button>
+                {([['mpesa_till', '💚 M-Pesa Till'], ['mpesa_stk', '📱 STK Push'], ['paystack_card', '💳 Card/Mobile']] as const).map(([val, label]) => (
+                  <button key={val} onClick={() => setPaymentTab(val)} className={`px-4 py-2 rounded-lg text-sm font-medium border transition-all ${paymentTab === val ? 'border-gold bg-gold/10 text-gold' : 'border-[#333] text-gray-400 hover:border-gold/30'}`}>{label}</button>
                 ))}
               </div>
 
@@ -238,9 +280,9 @@ export default function CheckoutPage() {
                     <li>4. Enter Till Number: <span className="text-white font-bold text-lg">{tillNumber}</span>
                       <button onClick={copyTill} className="ml-2 text-gold hover:text-gold/80 text-xs align-middle">{copied ? <Check size={14} className="inline" /> : <Copy size={14} className="inline" />}</button>
                     </li>
-                    <li>5. Enter Amount: <span className="text-white font-bold text-lg">{formatKES(total)}</span></li>
+                    <li>5. Enter Amount: <span className="text-white font-bold text-lg">{formatKES(chargeTotal)}</span></li>
                     <li>6. Enter your M-Pesa PIN and confirm</li>
-                    <li>7. You'll receive an SMS confirmation code (e.g. <em>RGH2K1XYZ</em>)</li>
+                    <li>7. You&apos;ll receive an SMS confirmation code (e.g. <em>RGH2K1XYZ</em>)</li>
                     <li>8. Enter that code below</li>
                   </ol>
                   <div>
@@ -256,13 +298,13 @@ export default function CheckoutPage() {
               {paymentTab === 'mpesa_stk' && (
                 <div className="bg-[#111] border border-[#1A1A1A] rounded-xl p-6 space-y-4">
                   <h3 className="font-semibold text-green-400">M-Pesa STK Push</h3>
-                  <p className="text-sm text-gray-300">We'll send a payment prompt directly to your phone.</p>
+                  <p className="text-sm text-gray-300">We&apos;ll send a payment prompt directly to your phone.</p>
                   <div>
                     <label className="block text-sm font-medium mb-2">Phone Number</label>
                     <input type="tel" value={form.customer_phone} onChange={e => setForm(prev => ({ ...prev, customer_phone: e.target.value }))} className="input-dark" placeholder="07XXXXXXXX" />
                   </div>
                   <button onClick={handleStkPush} disabled={loading || stkPolling} className="btn-gold w-full py-3.5 font-semibold flex items-center justify-center gap-2">
-                    {loading ? <Loader2 size={18} className="animate-spin" /> : stkPolling ? <><Loader2 size={18} className="animate-spin" /> Waiting for payment...</> : `Send Payment to My Phone (${formatKES(total)})`}
+                    {loading ? <Loader2 size={18} className="animate-spin" /> : stkPolling ? <><Loader2 size={18} className="animate-spin" /> Waiting for payment...</> : `Send Payment Request — ${formatKES(chargeTotal)}`}
                   </button>
                   {stkPolling && <p className="text-xs text-gray-400 text-center">Check your phone and enter your M-Pesa PIN to complete payment.</p>}
                 </div>
@@ -278,26 +320,12 @@ export default function CheckoutPage() {
                     <span className="bg-[#1A1A1A] px-3 py-1.5 rounded text-xs font-bold text-orange-400 border border-[#333]">AIRTEL MONEY</span>
                   </div>
                   <button onClick={handlePaystack} disabled={loading} className="btn-gold w-full py-3.5 font-semibold flex items-center justify-center gap-2">
-                    {loading ? <Loader2 size={18} className="animate-spin" /> : `Pay ${formatKES(total)} Securely`}
+                    {loading ? <Loader2 size={18} className="animate-spin" /> : `Pay ${formatKES(chargeTotal)} Securely`}
                   </button>
                 </div>
               )}
             </div>
-            <div className="h-fit">
-              <div className="bg-[#111] rounded-xl border border-[#1A1A1A] p-5 space-y-3 sticky top-24">
-                <h3 className="font-semibold">Order Summary</h3>
-                {items.slice(0, 4).map(item => (
-                  <div key={item.product_id} className="flex justify-between text-sm gap-2">
-                    <span className="text-gray-300 truncate">{item.title} × {item.quantity}</span>
-                    <span className="flex-shrink-0">{formatKES(item.unit_price * item.quantity)}</span>
-                  </div>
-                ))}
-                <hr className="border-[#1A1A1A]" />
-                <div className="flex justify-between text-sm text-gray-300"><span>Subtotal</span><span>{formatKES(subtotal)}</span></div>
-                <div className="flex justify-between text-sm text-gray-300"><span>Delivery</span><span>{formatKES(deliveryFee)}</span></div>
-                <div className="flex justify-between font-bold text-base border-t border-[#1A1A1A] pt-2"><span>Total</span><span className="text-gold">{formatKES(total)}</span></div>
-              </div>
-            </div>
+            <div className="h-fit"><OrderSummaryPanel showVerified /></div>
           </div>
         )}
 
@@ -312,16 +340,20 @@ export default function CheckoutPage() {
               <div className="bg-[#111] border border-gold/30 rounded-xl p-5 text-left space-y-2">
                 <div className="flex justify-between text-sm"><span className="text-gray-400">Order Number</span><span className="font-bold text-gold text-lg">#{String(orderNumber).padStart(5, '0')}</span></div>
                 <div className="flex justify-between text-sm"><span className="text-gray-400">Delivery to</span><span>{form.delivery_matatu_route || form.customer_name}</span></div>
-                <div className="flex justify-between text-sm"><span className="text-gray-400">Estimated delivery</span><span>2–5 business days</span></div>
-                <div className="flex justify-between text-sm"><span className="text-gray-400">Total paid</span><span className="font-semibold">{formatKES(total)}</span></div>
+                <div className="flex justify-between text-sm"><span className="text-gray-400">Payment method</span><span className="capitalize">{paymentTab.replace('_', ' ')}</span></div>
+                <div className="flex justify-between text-sm"><span className="text-gray-400">Total charged</span><span className="font-semibold text-gold">{formatKES(chargeTotal)}</span></div>
               </div>
             )}
             <div className="flex flex-col sm:flex-row gap-3">
               <Link href={`/track/${orderNumber}`} className="btn-outline-gold flex-1 py-3 text-sm font-semibold">Track My Order</Link>
               <Link href="/shop" className="btn-gold flex-1 py-3 text-sm font-semibold">Continue Shopping</Link>
             </div>
-            <a href={`https://wa.me/254792274842?text=Hi! I just placed order %23${orderNumber}. Can you confirm?`} target="_blank" rel="noopener noreferrer"
-              className="text-green-400 hover:text-green-300 text-sm transition-colors">
+            <a
+              href={`https://wa.me/254792274842?text=${encodeURIComponent(`Hi! I just placed order #${String(orderNumber).padStart(5, '0')}. Can you confirm?`)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-green-400 hover:text-green-300 text-sm transition-colors"
+            >
               💬 Questions? Chat with us on WhatsApp
             </a>
           </div>

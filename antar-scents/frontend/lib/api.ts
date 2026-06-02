@@ -39,6 +39,15 @@ export const productsApi = {
     formData.append('file', file);
     return api.post('/api/products/import-csv', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
   },
+  importUrl: (url: string) => api.post('/api/products/import-url', { url }),
+};
+
+export const categoriesApi = {
+  getAll: () => api.get('/api/categories'),
+  getAllAdmin: () => api.get('/api/categories/all'),
+  create: (data: { name: string; slug: string; sort_order?: number; active?: boolean }) => api.post('/api/categories', data),
+  update: (id: string, data: Partial<{ name: string; slug: string; sort_order: number; active: boolean }>) => api.put(`/api/categories/${id}`, data),
+  delete: (id: string) => api.delete(`/api/categories/${id}`),
 };
 
 export const ordersApi = {

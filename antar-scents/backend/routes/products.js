@@ -2,6 +2,8 @@ const express = require('express');
 const multer = require('multer');
 const { parse } = require('csv-parse/sync');
 const { z } = require('zod');
+const jwt = require('jsonwebtoken');
+const axios = require('axios');
 const supabase = require('../lib/supabase');
 const { authMiddleware } = require('../middleware/auth');
 const adminMiddleware = require('../middleware/admin');
@@ -25,8 +27,24 @@ const productSchema = z.object({
 
 router.get('/', async (req, res) => {
   try {
-    const { category, vendor, tags, min_price, max_price, sort, page = 1, limit = 20, search } = req.query;
-    let query = supabase.from('products').select('id,title,handle,vendor,product_type,tags,status,images,variants,selling_price,created_at', { count: 'exact' }).eq('status', 'active');
+    // Admins see all statuses; public sees active only
+    let adminRequest = false;
+    try {
+      const token = (req.headers.authorization || '').replace('Bearer ', '');
+      if (token) {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        if (decoded.role === 'admin') adminRequest = true;
+      }
+    } catch {}
+
+    const { category, vendor, tags, min_price, max_price, sort, page = 1, limit = 20, search, status } = req.query;
+    let query = supabase.from('products').select('id,title,handle,vendor,product_type,tags,status,images,variants,selling_price,buying_price,created_at', { count: 'exact' });
+
+    if (!adminRequest) {
+      query = query.eq('status', 'active');
+    } else if (status) {
+      query = query.eq('status', status);
+    }
 
     if (search) query = query.ilike('title', `%${search}%`);
     if (vendor) query = query.eq('vendor', vendor);
@@ -127,6 +145,107 @@ router.post('/import-csv', authMiddleware, adminMiddleware, upload.single('file'
     res.json({ success: true, message: `${imported} products imported, ${failed} failed`, data: { imported, failed } });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+router.post('/import-url', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const { url } = req.body;
+    if (!url) return res.status(400).json({ success: false, message: 'URL required' });
+
+    let hostname;
+    try { hostname = new URL(url).hostname.replace('www.', ''); }
+    catch { return res.status(400).json({ success: false, message: 'Invalid URL' }); }
+
+    const cheerio = require('cheerio');
+    const { data: html } = await axios.get(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Connection': 'keep-alive',
+      },
+      timeout: 20000,
+      maxRedirects: 5,
+    });
+
+    const $ = cheerio.load(html);
+    let title = '', description = '', images = [], price = 0, vendor = '';
+
+    // 1. JSON-LD structured data (most reliable)
+    $('script[type="application/ld+json"]').each((_, el) => {
+      try {
+        const json = JSON.parse($(el).html() || '{}');
+        const items = Array.isArray(json) ? json : [json];
+        for (const item of items) {
+          if (!title && item.name) title = String(item.name);
+          if (!description && item.description) description = String(item.description);
+          if (!price && item.offers?.price) price = parseFloat(item.offers.price) || 0;
+          if (!vendor && item.brand?.name) vendor = String(item.brand.name);
+          if (!images.length) {
+            const imgs = Array.isArray(item.image) ? item.image : (item.image ? [item.image] : []);
+            images = imgs.slice(0, 6).map(i => ({ src: typeof i === 'string' ? i : (i.url || i.contentUrl || '') })).filter(i => i.src);
+          }
+        }
+      } catch {}
+    });
+
+    // 2. OG / meta fallback
+    if (!title) title = $('meta[property="og:title"]').attr('content') || $('title').text().split('|')[0].split(':')[0].trim() || '';
+    if (!description) description = $('meta[property="og:description"]').attr('content') || $('meta[name="description"]').attr('content') || '';
+    if (!images.length) {
+      const ogImg = $('meta[property="og:image"]').attr('content');
+      if (ogImg) images = [{ src: ogImg }];
+    }
+
+    // 3. Platform-specific selectors
+    if (hostname.includes('amazon.')) {
+      if (!title) title = $('#productTitle').text().trim();
+      if (!vendor) vendor = $('#bylineInfo').text().replace(/^(Visit the|Brand:|by)\s*/i, '').replace(/\s*Store$/i, '').trim();
+      if (!price) {
+        const whole = $('.a-price-whole').first().text().replace(/[^0-9]/g, '');
+        const frac = $('.a-price-fraction').first().text().replace(/[^0-9]/g, '') || '00';
+        if (whole) price = parseFloat(`${whole}.${frac}`);
+      }
+      if (!description) {
+        const bullets = [];
+        $('#feature-bullets ul li span:not(.aok-hidden)').each((_, el) => {
+          const text = $(el).text().trim();
+          if (text && text.length > 10) bullets.push(text);
+        });
+        if (bullets.length) description = bullets.join('\n');
+      }
+    }
+
+    if (hostname.includes('aliexpress.')) {
+      if (!title) title = $('h1').first().text().trim();
+      if (!price) {
+        const priceEl = $('.product-price-value, [class*="price-current"]').first();
+        price = parseFloat(priceEl.text().replace(/[^0-9.]/g, '')) || 0;
+      }
+    }
+
+    if (hostname.includes('alibaba.')) {
+      if (!title) title = $('h1.product-name, h1.title, h1').first().text().trim();
+      if (!vendor) vendor = $('.company-name a, .seller-name').first().text().trim();
+      if (!price) {
+        const priceText = $('.price-main, .price-range, .price').first().text().trim();
+        price = parseFloat(priceText.replace(/[^0-9.]/g, '')) || 0;
+      }
+    }
+
+    title = title.replace(/\s+/g, ' ').trim().slice(0, 255);
+    const handle = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 100) || `product-${Date.now()}`;
+
+    res.json({
+      success: true,
+      data: { title, handle, body_html: description, vendor, images, selling_price: price, product_type: '', tags: [], status: 'draft' }
+    });
+  } catch (err) {
+    const msg = err.code === 'ECONNABORTED' || err.code === 'ETIMEDOUT'
+      ? 'Request timed out — the site may be blocking access. Try a direct product link.'
+      : `Could not extract product: ${err.message}`;
+    res.status(500).json({ success: false, message: msg });
   }
 });
 

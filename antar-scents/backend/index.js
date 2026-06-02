@@ -35,6 +35,7 @@ app.use('/api/recommendations', require('./routes/recommendations'));
 app.use('/api/browsing', require('./routes/browsing'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/favourites', require('./routes/favourites'));
+app.use('/api/categories', require('./routes/categories'));
 
 // Error handler
 app.use((err, req, res, next) => {
@@ -72,10 +73,47 @@ async function seedAdmin() {
   }
 }
 
+async function seedCategories() {
+  try {
+    const { data: existing, error: checkErr } = await supabase.from('categories').select('id').limit(1);
+    if (checkErr) return; // table may not exist yet — skip gracefully
+    if (existing && existing.length > 0) return; // already seeded
+
+    // Try to seed from existing product_type values
+    const { data: products } = await supabase.from('products').select('product_type').not('product_type', 'is', null).not('product_type', 'eq', '');
+    const types = [...new Set((products || []).map(p => p.product_type).filter(Boolean))];
+
+    let categories = types.map((type, i) => ({
+      name: type.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+      slug: type.toLowerCase().replace(/\s+/g, '-'),
+      sort_order: i,
+      active: true,
+    }));
+
+    if (categories.length === 0) {
+      categories = [
+        { name: 'Men', slug: 'men', sort_order: 0, active: true },
+        { name: 'Women', slug: 'women', sort_order: 1, active: true },
+        { name: 'Unisex', slug: 'unisex', sort_order: 2, active: true },
+        { name: 'Gift Sets', slug: 'gift-sets', sort_order: 3, active: true },
+        { name: 'Luxury', slug: 'luxury', sort_order: 4, active: true },
+        { name: 'Travel Size', slug: 'travel-size', sort_order: 5, active: true },
+      ];
+    }
+
+    const { error } = await supabase.from('categories').insert(categories);
+    if (error) console.error('[SEED] Categories error:', error.message);
+    else console.log('[SEED] Categories seeded:', categories.length);
+  } catch (e) {
+    console.error('[SEED] Categories seed error:', e.message);
+  }
+}
+
 const PORT = parseInt(process.env.PORT || '5000', 10);
 app.listen(PORT, '0.0.0.0', async () => {
   console.log(`[SERVER] ANTAR SCENTS API running on port ${PORT} (${process.env.NODE_ENV || 'development'})`);
   try { await seedAdmin(); } catch (e) { console.error('[SEED] Error:', e.message); }
+  try { await seedCategories(); } catch (e) { console.error('[SEED] Categories error:', e.message); }
 });
 
 module.exports = app;

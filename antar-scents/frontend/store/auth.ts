@@ -8,6 +8,7 @@ export interface User {
   full_name: string;
   phone: string;
   role: 'customer' | 'admin';
+  email_verified: boolean;
   created_at: string;
 }
 

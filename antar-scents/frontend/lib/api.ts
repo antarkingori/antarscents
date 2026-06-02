@@ -56,6 +56,7 @@ export const authApi = {
   login: (email: string, password: string) => api.post('/api/auth/login', { email, password }),
   me: () => api.get('/api/auth/me'),
   changePassword: (current_password: string, new_password: string) => api.post('/api/auth/change-password', { current_password, new_password }),
+  resendVerification: () => api.post('/api/auth/resend-verification'),
 };
 
 export const settingsApi = {

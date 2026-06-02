@@ -45,24 +45,30 @@ app.use((err, req, res, next) => {
 // 404
 app.use((req, res) => res.status(404).json({ success: false, message: 'Route not found' }));
 
-// Seed admin user on startup
+// Seed admin user on startup — always syncs password from env so changing
+// ADMIN_PASSWORD + redeploying always takes effect
 async function seedAdmin() {
   if (!process.env.ADMIN_EMAIL || !process.env.ADMIN_PASSWORD) {
     console.warn('[WARN] ADMIN_EMAIL or ADMIN_PASSWORD not set — skipping admin seed');
     return;
   }
+  const password_hash = await bcrypt.hash(process.env.ADMIN_PASSWORD, 12);
   const { data: existing } = await supabase.from('users').select('id').eq('email', process.env.ADMIN_EMAIL).single();
   if (!existing) {
-    const password_hash = await bcrypt.hash(process.env.ADMIN_PASSWORD, 12);
     const { error } = await supabase.from('users').insert({
       email: process.env.ADMIN_EMAIL,
       password_hash,
       full_name: 'Admin',
       role: 'admin',
-      phone: '+254000000000'
+      phone: '+254000000000',
+      email_verified: true
     });
     if (error) console.error('[SEED] Admin seed error:', error.message);
     else console.log('[SEED] Admin user created:', process.env.ADMIN_EMAIL);
+  } else {
+    const { error } = await supabase.from('users').update({ password_hash, role: 'admin', email_verified: true }).eq('id', existing.id);
+    if (error) console.error('[SEED] Admin update error:', error.message);
+    else console.log('[SEED] Admin password synced:', process.env.ADMIN_EMAIL);
   }
 }
 

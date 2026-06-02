@@ -9,7 +9,7 @@ import { OrderStatusBadge, PaymentStatusBadge } from '@/components/ui/Badge';
 import { useAuthStore } from '@/store/auth';
 import { ordersApi, favouritesApi, authApi } from '@/lib/api';
 import { formatKES, timeAgo } from '@/lib/utils';
-import { User, Package, Heart, Clock, Settings, LogOut, Loader2 } from 'lucide-react';
+import { User, Package, Heart, Clock, Settings, LogOut, Loader2, MailWarning } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const TABS = [
@@ -29,6 +29,19 @@ export default function AccountPage() {
   const [profileForm, setProfileForm] = useState({ full_name: user?.full_name || '', phone: user?.phone || '' });
   const [pwForm, setPwForm] = useState({ current_password: '', new_password: '' });
   const [saving, setSaving] = useState(false);
+  const [resending, setResending] = useState(false);
+
+  const handleResendVerification = async () => {
+    setResending(true);
+    try {
+      await authApi.resendVerification();
+      toast.success('Verification email sent! Check your inbox.');
+    } catch {
+      toast.error('Could not send email. Try again shortly.');
+    } finally {
+      setResending(false);
+    }
+  };
 
   useEffect(() => {
     if (!user) { router.push('/account/login'); return; }
@@ -63,6 +76,20 @@ export default function AccountPage() {
     <div className="min-h-screen bg-black text-white">
       <Header />
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
+        {!user.email_verified && (
+          <div className="mb-6 flex items-start gap-3 bg-amber-500/10 border border-amber-500/30 rounded-xl px-5 py-4">
+            <MailWarning size={20} className="text-amber-400 flex-shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <p className="text-amber-300 text-sm font-medium">Please verify your email address</p>
+              <p className="text-amber-400/70 text-xs mt-0.5">Check your inbox for a verification link. Didn&apos;t get it?{' '}
+                <button onClick={handleResendVerification} disabled={resending} className="underline hover:text-amber-300 transition-colors">
+                  {resending ? 'Sending...' : 'Resend email'}
+                </button>
+              </p>
+            </div>
+          </div>
+        )}
+
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="font-playfair text-2xl font-bold">My Account</h1>

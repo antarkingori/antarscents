@@ -22,7 +22,7 @@ const TABS = [
 
 export default function AccountPage() {
   const router = useRouter();
-  const { user, logout, setUser } = useAuthStore();
+  const { user, logout, setUser, token } = useAuthStore();
   const [tab, setTab] = useState('overview');
   const [orders, setOrders] = useState<Record<string, unknown>[]>([]);
   const [favourites, setFavourites] = useState<Record<string, unknown>[]>([]);
@@ -97,7 +97,7 @@ export default function AccountPage() {
     setSaving(true);
     try {
       const { data } = await authApi.updateProfile(profileForm);
-      setUser(data.data);
+      setUser(data.data, token!);
       toast.success('Profile updated!');
     } catch (err: unknown) {
       toast.error((err as { response?: { data?: { message?: string } } }).response?.data?.message || 'Failed to update profile');

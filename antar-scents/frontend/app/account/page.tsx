@@ -1,7 +1,8 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import MobileBottomNav from '@/components/layout/MobileBottomNav';
@@ -9,7 +10,7 @@ import { OrderStatusBadge, PaymentStatusBadge } from '@/components/ui/Badge';
 import { useAuthStore } from '@/store/auth';
 import { ordersApi, favouritesApi, authApi } from '@/lib/api';
 import { formatKES, timeAgo } from '@/lib/utils';
-import { User, Package, Heart, Clock, Settings, LogOut, Loader2, MailWarning } from 'lucide-react';
+import { User, Package, Heart, Clock, Settings, LogOut, Loader2, MailWarning, Search, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const TABS = [
@@ -30,6 +31,12 @@ export default function AccountPage() {
   const [pwForm, setPwForm] = useState({ current_password: '', new_password: '' });
   const [saving, setSaving] = useState(false);
   const [resending, setResending] = useState(false);
+  const [orderSearch, setOrderSearch] = useState('');
+  const [orderStatusFilter, setOrderStatusFilter] = useState('');
+
+  useEffect(() => {
+    if (user) setProfileForm({ full_name: user.full_name || '', phone: user.phone || '' });
+  }, [user]);
 
   const handleResendVerification = async () => {
     setResending(true);
@@ -46,7 +53,7 @@ export default function AccountPage() {
   useEffect(() => {
     if (!user) { router.push('/account/login'); return; }
     Promise.all([
-      ordersApi.getAll({ limit: 50 }),
+      ordersApi.getAll({ limit: 100 }),
       favouritesApi.getAll(),
     ]).then(([o, f]) => {
       setOrders(o.data.data || []);
@@ -56,7 +63,20 @@ export default function AccountPage() {
 
   if (!user) return null;
 
-  const totalSpent = orders.filter(o => (o as Record<string, string>).payment_status === 'paid').reduce((s, o) => s + parseFloat((o as Record<string, string>).total || '0'), 0);
+  const totalSpent = orders
+    .filter(o => (o as Record<string, string>).payment_status === 'paid')
+    .reduce((s, o) => s + parseFloat((o as Record<string, string>).total || '0'), 0);
+
+  const filteredOrders = useMemo(() => {
+    return orders.filter(order => {
+      const o = order as Record<string, unknown>;
+      const numStr = String(o.order_number || '').padStart(5, '0');
+      const matchesSearch = !orderSearch || numStr.includes(orderSearch.replace('#', '')) ||
+        String(o.customer_name || '').toLowerCase().includes(orderSearch.toLowerCase());
+      const matchesStatus = !orderStatusFilter || o.order_status === orderStatusFilter;
+      return matchesSearch && matchesStatus;
+    });
+  }, [orders, orderSearch, orderStatusFilter]);
 
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,6 +87,20 @@ export default function AccountPage() {
       setPwForm({ current_password: '', new_password: '' });
     } catch (err: unknown) {
       toast.error((err as { response?: { data?: { message?: string } } }).response?.data?.message || 'Failed to update password');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleUpdateProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      const { data } = await authApi.updateProfile(profileForm);
+      setUser(data.data);
+      toast.success('Profile updated!');
+    } catch (err: unknown) {
+      toast.error((err as { response?: { data?: { message?: string } } }).response?.data?.message || 'Failed to update profile');
     } finally {
       setSaving(false);
     }
@@ -132,7 +166,10 @@ export default function AccountPage() {
                     </div>
                     {orders.length > 0 && (
                       <div className="bg-[#111] border border-[#1A1A1A] rounded-xl p-5">
-                        <h3 className="font-semibold mb-4">Latest Order</h3>
+                        <div className="flex items-center justify-between mb-4">
+                          <h3 className="font-semibold">Latest Order</h3>
+                          <button onClick={() => setTab('orders')} className="text-gold text-xs hover:underline">View all</button>
+                        </div>
                         {(() => {
                           const o = orders[0] as Record<string, unknown>;
                           return (
@@ -146,28 +183,68 @@ export default function AccountPage() {
                         })()}
                       </div>
                     )}
+                    {orders.length === 0 && (
+                      <div className="bg-[#111] border border-[#1A1A1A] rounded-xl p-8 text-center text-gray-400">
+                        <Package size={40} className="mx-auto mb-3 opacity-30" />
+                        <p className="text-sm">No orders yet</p>
+                        <Link href="/shop" className="text-gold hover:underline text-sm mt-2 inline-block">Start Shopping</Link>
+                      </div>
+                    )}
                   </div>
                 )}
 
                 {tab === 'orders' && (
-                  <div className="space-y-3">
-                    <h2 className="font-playfair text-xl font-bold">My Orders</h2>
-                    {orders.length === 0 ? (
+                  <div className="space-y-4">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                      <h2 className="font-playfair text-xl font-bold">My Orders</h2>
+                      <div className="flex gap-2 w-full sm:w-auto">
+                        <div className="relative flex-1 sm:w-48">
+                          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+                          <input
+                            type="text"
+                            value={orderSearch}
+                            onChange={e => setOrderSearch(e.target.value)}
+                            placeholder="Search order #..."
+                            className="input-dark pl-8 text-sm w-full"
+                          />
+                          {orderSearch && <button onClick={() => setOrderSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500"><X size={14} /></button>}
+                        </div>
+                        <select value={orderStatusFilter} onChange={e => setOrderStatusFilter(e.target.value)} className="input-dark text-sm">
+                          <option value="">All statuses</option>
+                          {['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled'].map(s => (
+                            <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    {filteredOrders.length === 0 ? (
                       <div className="text-center py-16 text-gray-400">
                         <Package size={48} className="mx-auto mb-3 opacity-30" />
-                        <p>No orders yet</p>
-                        <Link href="/shop" className="text-gold hover:underline text-sm mt-2 inline-block">Start Shopping</Link>
+                        <p>{orders.length === 0 ? 'No orders yet' : 'No orders match your search'}</p>
+                        {orders.length === 0 && <Link href="/shop" className="text-gold hover:underline text-sm mt-2 inline-block">Start Shopping</Link>}
                       </div>
-                    ) : orders.map(order => {
+                    ) : filteredOrders.map(order => {
                       const o = order as Record<string, unknown>;
+                      const items = (o.items as Record<string, unknown>[]) || [];
                       return (
-                        <div key={o.id as string} className="bg-[#111] border border-[#1A1A1A] rounded-xl p-5">
-                          <div className="flex items-center justify-between mb-3">
+                        <div key={o.id as string} className="bg-[#111] border border-[#1A1A1A] rounded-xl p-5 space-y-3">
+                          <div className="flex items-center justify-between">
                             <span className="font-bold text-gold">#{String(o.order_number).padStart(5, '0')}</span>
-                            <span className="text-xs text-gray-400">{timeAgo(o.created_at as string)}</span>
+                            <span className="text-xs text-gray-400 flex items-center gap-1"><Clock size={12} />{timeAgo(o.created_at as string)}</span>
                           </div>
+                          {items.length > 0 && (
+                            <div className="flex gap-2 overflow-x-auto pb-1">
+                              {items.slice(0, 4).map((item, i) => (
+                                <div key={i} className="flex-shrink-0 text-xs text-gray-300 bg-[#0D0D0D] rounded-lg px-2 py-1">
+                                  {String(item.title || '').slice(0, 20)}{(item.title as string)?.length > 20 ? '…' : ''} ×{item.quantity as number}
+                                </div>
+                              ))}
+                              {items.length > 4 && <div className="flex-shrink-0 text-xs text-gray-500 bg-[#0D0D0D] rounded-lg px-2 py-1">+{items.length - 4} more</div>}
+                            </div>
+                          )}
                           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
-                            <div><span className="text-gray-400 text-xs">Items</span><p>{(o.items as unknown[])?.length || 0} items</p></div>
+                            <div><span className="text-gray-400 text-xs">Items</span><p>{items.length} item{items.length !== 1 ? 's' : ''}</p></div>
                             <div><span className="text-gray-400 text-xs">Total</span><p className="font-semibold">{formatKES(parseFloat(o.total as string))}</p></div>
                             <div><span className="text-gray-400 text-xs">Payment</span><PaymentStatusBadge label={o.payment_status as string} /></div>
                             <div><span className="text-gray-400 text-xs">Status</span><OrderStatusBadge label={o.order_status as string} /></div>
@@ -192,12 +269,20 @@ export default function AccountPage() {
                         {favourites.map(fav => {
                           const f = fav as Record<string, unknown>;
                           const product = f.products as Record<string, unknown>;
-                          return product ? (
-                            <div key={f.id as string} className="bg-[#111] border border-[#1A1A1A] rounded-xl p-3 text-sm">
-                              <Link href={`/product/${product.handle}`} className="text-gold hover:underline">{product.title as string}</Link>
-                              <p className="text-gray-400 mt-1 text-xs">{formatKES(parseFloat(product.selling_price as string))}</p>
-                            </div>
-                          ) : null;
+                          if (!product) return null;
+                          const images = product.images as { src: string }[] | undefined;
+                          const imgSrc = images?.[0]?.src || '/placeholder-perfume.jpg';
+                          return (
+                            <Link key={f.id as string} href={`/product/${product.handle}`} className="bg-[#111] border border-[#1A1A1A] rounded-xl overflow-hidden hover:border-gold/30 transition-colors group">
+                              <div className="relative aspect-square bg-[#0D0D0D]">
+                                <Image src={imgSrc} alt={product.title as string} fill className="object-cover group-hover:scale-105 transition-transform duration-300" sizes="(max-width: 640px) 50vw, 33vw" />
+                              </div>
+                              <div className="p-3">
+                                <p className="text-sm font-medium group-hover:text-gold transition-colors line-clamp-2">{product.title as string}</p>
+                                <p className="text-gold text-sm font-semibold mt-1">{formatKES(parseFloat(product.selling_price as string))}</p>
+                              </div>
+                            </Link>
+                          );
                         })}
                       </div>
                     )}
@@ -205,7 +290,29 @@ export default function AccountPage() {
                 )}
 
                 {tab === 'profile' && (
-                  <div className="space-y-8">
+                  <div className="space-y-6">
+                    <div className="bg-[#111] border border-[#1A1A1A] rounded-xl p-6">
+                      <h3 className="font-semibold mb-4">Edit Profile</h3>
+                      <form onSubmit={handleUpdateProfile} className="space-y-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-300 mb-1.5">Full Name</label>
+                          <input type="text" value={profileForm.full_name} onChange={e => setProfileForm(p => ({ ...p, full_name: e.target.value }))} required minLength={2} className="input-dark" />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-300 mb-1.5">Phone Number</label>
+                          <input type="tel" value={profileForm.phone} onChange={e => setProfileForm(p => ({ ...p, phone: e.target.value }))} className="input-dark" />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-300 mb-1.5">Email Address</label>
+                          <input type="email" value={user.email} disabled className="input-dark opacity-50 cursor-not-allowed" />
+                          <p className="text-xs text-gray-500 mt-1">Email cannot be changed</p>
+                        </div>
+                        <button type="submit" disabled={saving} className="btn-gold px-6 py-2.5 text-sm font-semibold flex items-center gap-2">
+                          {saving ? <><Loader2 size={16} className="animate-spin" /> Saving...</> : 'Save Changes'}
+                        </button>
+                      </form>
+                    </div>
+
                     <div className="bg-[#111] border border-[#1A1A1A] rounded-xl p-6 space-y-4">
                       <h3 className="font-semibold">Change Password</h3>
                       <form onSubmit={handleChangePassword} className="space-y-4">
@@ -215,20 +322,19 @@ export default function AccountPage() {
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-300 mb-1.5">New Password</label>
-                          <input type="password" value={pwForm.new_password} onChange={e => setPwForm(p => ({ ...p, new_password: e.target.value }))} required className="input-dark" />
+                          <input type="password" value={pwForm.new_password} onChange={e => setPwForm(p => ({ ...p, new_password: e.target.value }))} required minLength={6} className="input-dark" />
                         </div>
                         <button type="submit" disabled={saving} className="btn-gold px-6 py-2.5 text-sm font-semibold">
                           {saving ? 'Updating...' : 'Update Password'}
                         </button>
                       </form>
                     </div>
+
                     <div className="bg-[#111] border border-[#1A1A1A] rounded-xl p-6">
-                      <h3 className="font-semibold mb-2">Account Details</h3>
+                      <h3 className="font-semibold mb-3">Account Info</h3>
                       <div className="space-y-2 text-sm text-gray-300">
-                        <div className="flex gap-3"><span className="text-gray-500 w-24">Name</span><span>{user.full_name}</span></div>
-                        <div className="flex gap-3"><span className="text-gray-500 w-24">Email</span><span>{user.email}</span></div>
-                        <div className="flex gap-3"><span className="text-gray-500 w-24">Phone</span><span>{user.phone}</span></div>
-                        <div className="flex gap-3"><span className="text-gray-500 w-24">Member since</span><span>{new Date(user.created_at).toLocaleDateString('en-KE')}</span></div>
+                        <div className="flex gap-3"><span className="text-gray-500 w-28">Member since</span><span>{new Date(user.created_at).toLocaleDateString('en-KE', { year: 'numeric', month: 'long', day: 'numeric' })}</span></div>
+                        <div className="flex gap-3"><span className="text-gray-500 w-28">Email verified</span><span className={user.email_verified ? 'text-green-400' : 'text-amber-400'}>{user.email_verified ? '✓ Verified' : '✗ Not verified'}</span></div>
                       </div>
                     </div>
                   </div>

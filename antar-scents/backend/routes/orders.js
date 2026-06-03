@@ -121,8 +121,31 @@ router.get('/track', async (req, res) => {
   try {
     const { order_number, phone } = req.query;
     if (!order_number || !phone) return res.status(400).json({ success: false, message: 'Order number and phone required' });
-    const { data, error } = await supabase.from('orders').select('order_number,order_status,payment_status,payment_method,items,delivery_matatu_route,created_at,updated_at,customer_name').eq('order_number', parseInt(order_number)).eq('customer_phone', phone).single();
-    if (error || !data) return res.status(404).json({ success: false, message: 'Order not found' });
+
+    // Build alternate phone formats so 07XX matches +254XX and vice versa
+    const p = phone.trim();
+    const digits = p.replace(/\D/g, '');
+    const phoneVariants = new Set([p]);
+    if (digits.length === 10 && digits.startsWith('0')) {
+      phoneVariants.add(`+254${digits.slice(1)}`);
+      phoneVariants.add(`254${digits.slice(1)}`);
+    } else if (digits.length === 12 && digits.startsWith('254')) {
+      phoneVariants.add(`0${digits.slice(3)}`);
+      phoneVariants.add(`+${digits}`);
+    } else if (digits.length === 9) {
+      phoneVariants.add(`0${digits}`);
+      phoneVariants.add(`+254${digits}`);
+      phoneVariants.add(`254${digits}`);
+    }
+
+    const { data, error } = await supabase
+      .from('orders')
+      .select('order_number,order_status,payment_status,payment_method,items,delivery_matatu_route,created_at,updated_at,customer_name')
+      .eq('order_number', parseInt(order_number))
+      .in('customer_phone', [...phoneVariants])
+      .single();
+
+    if (error || !data) return res.status(404).json({ success: false, message: 'Order not found. Please check your order number and the phone number you used when ordering.' });
     res.json({ success: true, data });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });

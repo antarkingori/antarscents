@@ -40,6 +40,11 @@ export const productsApi = {
     return api.post('/api/products/import-csv', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
   },
   importUrl: (url: string) => api.post('/api/products/import-url', { url }),
+  uploadImage: (file: File) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    return api.post('/api/products/upload-image', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+  },
 };
 
 export const categoriesApi = {
@@ -66,6 +71,7 @@ export const authApi = {
   me: () => api.get('/api/auth/me'),
   changePassword: (current_password: string, new_password: string) => api.post('/api/auth/change-password', { current_password, new_password }),
   resendVerification: () => api.post('/api/auth/resend-verification'),
+  updateProfile: (data: { full_name?: string; phone?: string }) => api.put('/api/auth/profile', data),
 };
 
 export const settingsApi = {

@@ -8,7 +8,7 @@ import ProductCard, { Product } from '@/components/ui/ProductCard';
 import QuickViewModal from '@/components/ui/QuickViewModal';
 import { ProductGridSkeleton } from '@/components/ui/LoadingSkeleton';
 import { productsApi, categoriesApi } from '@/lib/api';
-import { SlidersHorizontal, ChevronDown, X } from 'lucide-react';
+import { SlidersHorizontal, ChevronDown, X, Search } from 'lucide-react';
 
 const SORT_OPTIONS = [
   { value: '', label: 'Featured' },
@@ -27,6 +27,7 @@ export default function ShopContent() {
   const [page, setPage] = useState(1);
   const [filterOpen, setFilterOpen] = useState(false);
   const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null);
+  const [searchInput, setSearchInput] = useState('');
 
   const [filters, setFilters] = useState({
     search: searchParams.get('search') || '',
@@ -35,6 +36,16 @@ export default function ShopContent() {
     min_price: '',
     max_price: '',
   });
+
+  // Sync filters when URL params change (e.g. header search or nav category links)
+  useEffect(() => {
+    const s = searchParams.get('search') || '';
+    const c = searchParams.get('category') || '';
+    const so = searchParams.get('sort') || '';
+    setFilters(f => ({ ...f, search: s, category: c, sort: so }));
+    setSearchInput(s);
+    setPage(1);
+  }, [searchParams]);
 
   const fetchProducts = useCallback(async () => {
     setLoading(true);
@@ -66,8 +77,14 @@ export default function ShopContent() {
     setPage(1);
   };
 
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    updateFilter('search', searchInput.trim());
+  };
+
   const clearFilters = () => {
     setFilters({ search: '', category: '', sort: '', min_price: '', max_price: '' });
+    setSearchInput('');
     setPage(1);
     router.push('/shop');
   };
@@ -78,10 +95,13 @@ export default function ShopContent() {
     <div className="space-y-6">
       <div>
         <h3 className="text-sm font-semibold mb-3 text-gray-300 uppercase tracking-wide">Category</h3>
-        <div className="space-y-2">
-          {categories.length === 0 && (
-            <p className="text-gray-500 text-xs">Loading categories...</p>
-          )}
+        <div className="space-y-1.5">
+          <label className="flex items-center gap-2 cursor-pointer group">
+            <input type="radio" name="category" value="" checked={filters.category === ''}
+              onChange={() => updateFilter('category', '')} className="accent-gold" />
+            <span className="text-sm text-gray-400 group-hover:text-gold transition-colors">All</span>
+          </label>
+          {categories.length === 0 && <p className="text-gray-500 text-xs">Loading categories...</p>}
           {categories.map(cat => (
             <label key={cat.id} className="flex items-center gap-2 cursor-pointer group">
               <input type="radio" name="category" value={cat.slug} checked={filters.category === cat.slug}
@@ -117,6 +137,44 @@ export default function ShopContent() {
           <h1 className="font-playfair text-3xl font-bold mb-1">Shop All Fragrances</h1>
           <p className="text-gray-400 text-sm">{total} products available</p>
         </div>
+
+        {/* Search bar */}
+        <form onSubmit={handleSearch} className="mb-6 flex gap-2 max-w-xl">
+          <div className="relative flex-1">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+            <input
+              type="text"
+              value={searchInput}
+              onChange={e => setSearchInput(e.target.value)}
+              placeholder="Search fragrances, brands, scents..."
+              className="input-dark pl-9 w-full"
+            />
+          </div>
+          <button type="submit" className="btn-gold px-5 py-2 text-sm font-semibold">Search</button>
+          {filters.search && (
+            <button type="button" onClick={() => { setSearchInput(''); updateFilter('search', ''); }} className="btn-outline-gold px-3 py-2 text-sm">
+              <X size={16} />
+            </button>
+          )}
+        </form>
+
+        {/* Active filter chips */}
+        {(filters.category || filters.search) && (
+          <div className="flex flex-wrap gap-2 mb-4">
+            {filters.category && (
+              <span className="flex items-center gap-1.5 bg-gold/10 border border-gold/30 text-gold text-xs px-3 py-1 rounded-full">
+                {categories.find(c => c.slug === filters.category)?.name || filters.category}
+                <button onClick={() => updateFilter('category', '')}><X size={12} /></button>
+              </span>
+            )}
+            {filters.search && (
+              <span className="flex items-center gap-1.5 bg-gold/10 border border-gold/30 text-gold text-xs px-3 py-1 rounded-full">
+                &quot;{filters.search}&quot;
+                <button onClick={() => { setSearchInput(''); updateFilter('search', ''); }}><X size={12} /></button>
+              </span>
+            )}
+          </div>
+        )}
 
         <div className="flex flex-col md:flex-row gap-8">
           <aside className="hidden md:block w-56 flex-shrink-0">
@@ -155,7 +213,7 @@ export default function ShopContent() {
             ) : products.length === 0 ? (
               <div className="text-center py-24 text-gray-400">
                 <p className="text-2xl mb-2">No products found</p>
-                <p className="text-sm mb-6">Try adjusting your filters</p>
+                <p className="text-sm mb-6">Try adjusting your filters or search term</p>
                 <button onClick={clearFilters} className="btn-gold px-6 py-2.5 text-sm">Clear Filters</button>
               </div>
             ) : (

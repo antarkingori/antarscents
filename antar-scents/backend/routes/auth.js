@@ -160,6 +160,21 @@ router.post('/resend-verification', authMiddleware, async (req, res) => {
   }
 });
 
+router.put('/profile', authMiddleware, async (req, res) => {
+  try {
+    const { full_name, phone } = req.body;
+    const updates = {};
+    if (full_name && full_name.trim().length >= 2) updates.full_name = full_name.trim();
+    if (phone && phone.trim().length >= 7) updates.phone = phone.trim();
+    if (Object.keys(updates).length === 0) return res.status(400).json({ success: false, message: 'No valid fields provided' });
+    const { data, error } = await supabase.from('users').update(updates).eq('id', req.user.id).select(USER_FIELDS).single();
+    if (error) throw error;
+    res.json({ success: true, data });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 // Google OAuth — exchange Supabase access_token for our backend JWT
 router.post('/google', async (req, res) => {
   try {

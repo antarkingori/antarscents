@@ -10,7 +10,8 @@ import QuickViewModal from '@/components/ui/QuickViewModal';
 import { ProductCardSkeleton } from '@/components/ui/LoadingSkeleton';
 import { productsApi, settingsApi } from '@/lib/api';
 import { formatKES } from '@/lib/utils';
-import { ChevronRight, Star, ArrowRight } from 'lucide-react';
+import { ChevronRight, Star, ArrowRight, Search, Package } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 const CATEGORIES = [
   { label: 'Men', icon: '🔷', slug: 'men' },
@@ -27,6 +28,11 @@ const TESTIMONIALS = [
   { name: 'Amina S.', location: 'Nairobi', rating: 5, text: 'Best online perfume shop in Kenya! Easy M-Pesa payment, quick delivery. Antar Scents never disappoints.' },
 ];
 
+// Reliable Unsplash perfume / luxury fragrance photos
+const HERO_IMAGE = 'https://images.unsplash.com/photo-1541643600914-78b084683702?auto=format&fit=crop&w=1920&q=85';
+const COLLECTION_IMAGE = 'https://images.unsplash.com/photo-1594035910387-fea47794261f?auto=format&fit=crop&w=1200&q=80';
+const BANNER_IMAGE = 'https://images.unsplash.com/photo-1615634260167-c8cdede054de?auto=format&fit=crop&w=1920&q=80';
+
 export default function HomePage() {
   const [bestSellers, setBestSellers] = useState<Product[]>([]);
   const [newArrivals, setNewArrivals] = useState<Product[]>([]);
@@ -34,6 +40,7 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true);
   const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null);
   const [email, setEmail] = useState('');
+  const [trackNum, setTrackNum] = useState('');
 
   useEffect(() => {
     Promise.all([
@@ -58,37 +65,84 @@ export default function HomePage() {
 
       <Header />
 
-      {/* Hero */}
-      <section className="relative min-h-[90vh] flex items-center justify-center overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-black via-[#0D0D0D] to-[#1A1000]" />
-        <div className="absolute inset-0 opacity-20">
-          <div className="absolute top-20 right-20 w-96 h-96 rounded-full bg-gold blur-3xl" />
-          <div className="absolute bottom-20 left-20 w-64 h-64 rounded-full bg-gold/50 blur-3xl" />
+      {/* ── Hero ──────────────────────────────────────────────────────────── */}
+      <section className="relative min-h-[92vh] flex items-center justify-center overflow-hidden">
+        {/* Background image */}
+        <div className="absolute inset-0">
+          <Image
+            src={HERO_IMAGE}
+            alt="Premium perfume collection"
+            fill
+            className="object-cover object-center scale-105"
+            priority
+            sizes="100vw"
+          />
+          {/* Multi-layer overlay for legibility */}
+          <div className="absolute inset-0 bg-gradient-to-r from-black/95 via-black/75 to-black/40" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/30" />
         </div>
-        <div className="relative z-10 text-center px-4 max-w-4xl mx-auto">
-          <p className="text-gold/80 text-sm tracking-[0.3em] uppercase mb-4 font-medium">Premium Fragrances</p>
-          <h1 className="font-playfair text-5xl sm:text-6xl lg:text-7xl font-bold mb-6 leading-tight">
-            Discover Your<br />
-            <span className="gold-text italic">Signature Scent</span>
-          </h1>
-          <p className="text-gray-300 text-lg sm:text-xl mb-10 max-w-xl mx-auto leading-relaxed">
-            Premium fragrances delivered worldwide. Same-day delivery in Nairobi, fast delivery across Kenya and internationally.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link href="/shop" className="btn-gold px-10 py-4 text-base font-semibold inline-flex items-center gap-2 justify-center">
-              Shop Now <ArrowRight size={18} />
-            </Link>
-            <Link href="/shop?category=luxury" className="btn-outline-gold px-10 py-4 text-base font-semibold inline-flex items-center justify-center">
-              View Collections
-            </Link>
+
+        {/* Gold ambient glow */}
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute top-1/3 right-1/4 w-80 h-80 rounded-full bg-gold/10 blur-3xl" />
+          <div className="absolute bottom-1/4 right-1/3 w-48 h-48 rounded-full bg-gold/8 blur-2xl" />
+        </div>
+
+        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
+          <div className="max-w-2xl">
+            <p className="text-gold/90 text-xs sm:text-sm tracking-[0.35em] uppercase mb-5 font-semibold">
+              Premium Fragrances · Kenya
+            </p>
+            <h1 className="font-playfair text-5xl sm:text-6xl lg:text-7xl font-bold mb-6 leading-[1.1]">
+              Discover Your<br />
+              <span className="gold-text italic">Signature Scent</span>
+            </h1>
+            <p className="text-gray-300 text-lg sm:text-xl mb-10 max-w-lg leading-relaxed">
+              Premium fragrances delivered across Kenya and worldwide. Same-day delivery in Nairobi.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 mb-12">
+              <Link href="/shop" className="btn-gold px-10 py-4 text-base font-semibold inline-flex items-center gap-2 justify-center">
+                Shop Now <ArrowRight size={18} />
+              </Link>
+              <Link href="/shop?category=luxury" className="btn-outline-gold px-10 py-4 text-base font-semibold inline-flex items-center justify-center">
+                Luxury Collection
+              </Link>
+            </div>
+
+            {/* Quick track */}
+            <div className="flex gap-2 max-w-sm">
+              <div className="relative flex-1">
+                <Package size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+                <input
+                  type="text"
+                  value={trackNum}
+                  onChange={e => setTrackNum(e.target.value)}
+                  placeholder="Order number..."
+                  className="w-full bg-white/10 backdrop-blur border border-white/20 rounded-lg py-2.5 pl-9 pr-3 text-sm text-white placeholder-gray-400 focus:outline-none focus:border-gold/50 transition-colors"
+                  onKeyDown={e => e.key === 'Enter' && trackNum && (window.location.href = `/track?order=${encodeURIComponent(trackNum)}`)}
+                />
+              </div>
+              <Link
+                href={trackNum ? `/track` : '/track'}
+                onClick={e => { if (!trackNum) return; e.preventDefault(); window.location.href = '/track'; }}
+                className="bg-white/10 backdrop-blur border border-white/20 hover:border-gold/40 text-sm px-4 py-2.5 rounded-lg text-gray-300 hover:text-gold transition-colors whitespace-nowrap flex items-center gap-1.5"
+              >
+                <Search size={14} /> Track Order
+              </Link>
+            </div>
           </div>
+        </div>
+
+        {/* Scroll indicator */}
+        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 opacity-40">
+          <div className="w-px h-12 bg-gradient-to-b from-transparent to-gold animate-pulse" />
         </div>
       </section>
 
-      {/* Category Strip */}
-      <section className="py-10 px-4 border-y border-[#1A1A1A] bg-[#0D0D0D]">
+      {/* ── Category Strip ──────────────────────────────────────────────── */}
+      <section className="py-8 px-4 border-y border-[#1A1A1A] bg-[#0D0D0D]">
         <div className="max-w-7xl mx-auto">
-          <div className="flex gap-4 overflow-x-auto scrollbar-hide justify-start md:justify-center pb-2">
+          <div className="flex gap-3 overflow-x-auto scrollbar-hide justify-start md:justify-center pb-1">
             {CATEGORIES.map(cat => (
               <Link key={cat.slug} href={`/shop?category=${cat.slug}`}
                 className="flex-shrink-0 flex items-center gap-2 bg-[#1A1A1A] hover:bg-gold/10 border border-[#333] hover:border-gold/40 text-sm px-5 py-3 rounded-full transition-all hover:text-gold whitespace-nowrap">
@@ -100,7 +154,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Best Sellers */}
+      {/* ── Best Sellers ─────────────────────────────────────────────────── */}
       <section className="py-16 px-4">
         <div className="max-w-7xl mx-auto">
           <div className="flex items-center justify-between mb-8">
@@ -123,7 +177,38 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* New Arrivals */}
+      {/* ── Featured Collection Banner ───────────────────────────────────── */}
+      <section className="relative py-0 overflow-hidden">
+        <div className="relative h-[420px] md:h-[520px]">
+          <Image
+            src={COLLECTION_IMAGE}
+            alt="Luxury fragrance collection"
+            fill
+            className="object-cover object-center"
+            sizes="100vw"
+          />
+          <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/60 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
+          <div className="relative z-10 h-full flex items-center">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
+              <div className="max-w-lg">
+                <p className="text-gold text-xs tracking-[0.3em] uppercase font-semibold mb-3">Exclusive Collection</p>
+                <h2 className="font-playfair text-4xl md:text-5xl font-bold mb-4 leading-tight">
+                  Luxury Scents<br />Crafted for You
+                </h2>
+                <p className="text-gray-300 mb-8 leading-relaxed">
+                  From airy florals to deep ouds — explore our curated collection of premium fragrances from the world's finest houses.
+                </p>
+                <Link href="/shop?category=luxury" className="btn-gold px-8 py-3.5 font-semibold inline-flex items-center gap-2">
+                  Explore Luxury <ArrowRight size={16} />
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── New Arrivals ─────────────────────────────────────────────────── */}
       <section className="py-16 px-4 bg-[#0D0D0D]">
         <div className="max-w-7xl mx-auto">
           <div className="flex items-center justify-between mb-8">
@@ -142,7 +227,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Trust Badges */}
+      {/* ── Trust Badges ─────────────────────────────────────────────────── */}
       <section className="py-14 px-4 border-y border-[#1A1A1A]">
         <div className="max-w-7xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-6">
           {[
@@ -160,7 +245,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* How It Works */}
+      {/* ── How It Works ─────────────────────────────────────────────────── */}
       <section className="py-16 px-4 bg-[#0D0D0D]">
         <div className="max-w-7xl mx-auto">
           <h2 className="font-playfair text-3xl font-bold text-center mb-12">How It Works</h2>
@@ -171,7 +256,7 @@ export default function HomePage() {
               { step: '03', icon: '💚', title: 'Pay via M-Pesa', desc: 'Quick and secure payment' },
               { step: '04', icon: '🚚', title: 'Delivered to You', desc: 'Same-day Nairobi, Kenya-wide & worldwide' },
             ].map(s => (
-              <div key={s.step} className="text-center relative">
+              <div key={s.step} className="text-center">
                 <div className="w-16 h-16 bg-gold/10 border border-gold/30 rounded-full flex items-center justify-center text-2xl mx-auto mb-4">{s.icon}</div>
                 <p className="text-gold text-xs font-bold tracking-widest mb-1">{s.step}</p>
                 <h3 className="font-semibold mb-2">{s.title}</h3>
@@ -182,7 +267,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Testimonials */}
+      {/* ── Testimonials ─────────────────────────────────────────────────── */}
       <section className="py-16 px-4">
         <div className="max-w-7xl mx-auto">
           <h2 className="font-playfair text-3xl font-bold text-center mb-12">What Our Customers Say</h2>
@@ -192,7 +277,7 @@ export default function HomePage() {
                 <div className="flex gap-1 mb-4">
                   {Array.from({ length: t.rating }).map((_, i) => <Star key={i} size={16} className="fill-gold text-gold" />)}
                 </div>
-                <p className="text-gray-300 text-sm leading-relaxed mb-4 italic">"{t.text}"</p>
+                <p className="text-gray-300 text-sm leading-relaxed mb-4 italic">&quot;{t.text}&quot;</p>
                 <div>
                   <p className="font-semibold text-sm">{t.name}</p>
                   <p className="text-gray-500 text-xs">{t.location}</p>
@@ -203,22 +288,45 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Newsletter */}
-      <section className="py-16 px-4 bg-gradient-to-br from-[#1A1000] to-[#0D0D0D] border-y border-gold/20">
-        <div className="max-w-xl mx-auto text-center">
-          <h2 className="font-playfair text-3xl font-bold mb-3">Get 10% Off Your First Order</h2>
+      {/* ── Newsletter + Background Image ───────────────────────────────── */}
+      <section className="relative py-20 px-4 overflow-hidden">
+        <div className="absolute inset-0">
+          <Image
+            src={BANNER_IMAGE}
+            alt="Perfume ambience"
+            fill
+            className="object-cover object-center"
+            sizes="100vw"
+          />
+          <div className="absolute inset-0 bg-black/85" />
+          <div className="absolute inset-0 bg-gradient-to-br from-[#1A1000]/60 via-transparent to-transparent" />
+        </div>
+        <div className="relative z-10 max-w-xl mx-auto text-center">
+          <p className="text-gold text-xs tracking-[0.3em] uppercase font-semibold mb-3">Exclusive Offers</p>
+          <h2 className="font-playfair text-3xl md:text-4xl font-bold mb-3">Get 10% Off Your First Order</h2>
           <p className="text-gray-400 mb-8">Subscribe to receive exclusive offers, new arrivals, and fragrance tips.</p>
-          <form onSubmit={e => { e.preventDefault(); setEmail(''); }} className="flex gap-3 max-w-md mx-auto">
+          <form onSubmit={e => { e.preventDefault(); toast.success('🎉 Subscribed! Check your inbox for your 10% discount.'); setEmail(''); }} className="flex gap-3 max-w-md mx-auto">
             <input
               type="email"
               value={email}
               onChange={e => setEmail(e.target.value)}
               placeholder="Enter your email address"
-              className="flex-1 input-dark"
+              className="flex-1 bg-white/10 backdrop-blur border border-white/20 rounded-lg py-3 px-4 text-sm text-white placeholder-gray-400 focus:outline-none focus:border-gold/50 transition-colors"
               required
             />
-            <button type="submit" className="btn-gold px-6 py-2.5 font-semibold whitespace-nowrap text-sm">Subscribe</button>
+            <button type="submit" className="btn-gold px-6 py-3 font-semibold whitespace-nowrap text-sm">Subscribe</button>
           </form>
+          <p className="text-gray-600 text-xs mt-4">No spam. Unsubscribe at any time.</p>
+        </div>
+      </section>
+
+      {/* ── Track Order CTA ──────────────────────────────────────────────── */}
+      <section className="py-10 px-4 bg-[#0D0D0D] border-t border-[#1A1A1A]">
+        <div className="max-w-xl mx-auto text-center">
+          <p className="text-gray-400 text-sm mb-4">Already ordered? Check where your package is right now.</p>
+          <Link href="/track" className="inline-flex items-center gap-2 btn-outline-gold px-8 py-3 text-sm font-semibold">
+            <Package size={16} /> Track My Order
+          </Link>
         </div>
       </section>
 
@@ -231,3 +339,4 @@ export default function HomePage() {
     </div>
   );
 }
+

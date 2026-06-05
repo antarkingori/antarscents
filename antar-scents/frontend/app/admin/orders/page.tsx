@@ -65,7 +65,7 @@ export default function AdminOrdersPage() {
     finally { setSaving(false); }
   };
 
-  const pendingVerificationCount = orders.filter(o => o.mpesa_code && o.payment_status === 'pending').length;
+  const pendingVerificationCount = orders.filter(o => !!o.mpesa_code && o.payment_status === 'pending').length;
 
   const exportCSV = () => {
     const rows = [['Order #', 'Date', 'Customer', 'Phone', 'Total', 'Payment Method', 'Payment Status', 'M-Pesa Code', 'Order Status']];
@@ -141,7 +141,7 @@ export default function AdminOrdersPage() {
               {loading ? (
                 <tr><td colSpan={10} className="text-center py-16"><Loader2 size={24} className="animate-spin text-gold mx-auto" /></td></tr>
               ) : orders.map(o => {
-                const needsVerification = o.mpesa_code && o.payment_status === 'pending';
+                const needsVerification = !!o.mpesa_code && o.payment_status === 'pending';
                 return (
                   <tr key={o.id as string} className={`border-b border-[#0D0D0D] hover:bg-[#0D0D0D] transition-colors ${needsVerification ? 'bg-yellow-500/5' : ''}`}>
                     <td className="px-4 py-3 text-gold font-medium whitespace-nowrap">#{String(o.order_number).padStart(5, '0')}</td>
@@ -188,7 +188,7 @@ export default function AdminOrdersPage() {
           <div className="space-y-5 text-sm">
 
             {/* M-Pesa verification banner */}
-            {selectedOrder.mpesa_code && selectedOrder.payment_status !== 'paid' && (
+            {!!selectedOrder.mpesa_code && selectedOrder.payment_status !== 'paid' && (
               <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4 flex items-start gap-3">
                 <Clock size={18} className="text-yellow-400 flex-shrink-0 mt-0.5" />
                 <div>

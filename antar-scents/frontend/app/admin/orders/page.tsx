@@ -18,7 +18,7 @@ export default function AdminOrdersPage() {
   const [newStatus, setNewStatus] = useState('');
   const [adminNotes, setAdminNotes] = useState('');
   const [saving, setSaving] = useState(false);
-  const [filters, setFilters] = useState({ search: '', order_status: '', payment_status: '', payment_method: '' });
+  const [filters, setFilters] = useState({ search: '', status: '', payment_status: '', payment_method: '' });
 
   const fetchOrders = useCallback(async () => {
     setLoading(true);
@@ -59,10 +59,6 @@ export default function AdminOrdersPage() {
     try {
       await ordersApi.markPaid(selectedOrder.id as string);
       toast.success('Payment verified — order marked as paid');
-      // Also auto-confirm the order
-      if (selectedOrder.order_status === 'pending') {
-        await ordersApi.updateStatus(selectedOrder.id as string, 'confirmed', adminNotes || 'Payment verified');
-      }
       setSelectedOrder(null);
       fetchOrders();
     } catch { toast.error('Failed to verify payment'); }
@@ -117,7 +113,7 @@ export default function AdminOrdersPage() {
           <input type="text" value={filters.search} onChange={e => setFilters(p => ({ ...p, search: e.target.value }))} placeholder="Search orders..." className="input-dark pl-9 text-sm w-full" />
         </div>
         {[
-          { key: 'order_status', options: ORDER_STATUSES, placeholder: 'All statuses' },
+          { key: 'status', options: ORDER_STATUSES, placeholder: 'All statuses' },
           { key: 'payment_status', options: ['pending', 'paid', 'failed'], placeholder: 'Payment status' },
           { key: 'payment_method', options: ['mpesa_till', 'mpesa_stk', 'paystack_card', 'paystack_mobile'], placeholder: 'Payment method' },
         ].map(f => (

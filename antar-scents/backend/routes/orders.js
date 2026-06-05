@@ -192,9 +192,10 @@ router.post('/:id/mpesa-code', async (req, res) => {
   try {
     const { mpesa_code } = req.body;
     if (!mpesa_code) return res.status(400).json({ success: false, message: 'M-Pesa code required' });
-    const { data, error } = await supabase.from('orders').update({ mpesa_code: mpesa_code.toUpperCase(), payment_status: 'pending', order_status: 'confirmed', updated_at: new Date().toISOString() }).eq('id', req.params.id).select().single();
+    // Store the code and keep payment_status pending — admin verifies before confirming
+    const { data, error } = await supabase.from('orders').update({ mpesa_code: mpesa_code.toUpperCase(), updated_at: new Date().toISOString() }).eq('id', req.params.id).select().single();
     if (error) throw error;
-    res.json({ success: true, data, message: 'M-Pesa code submitted. Order confirmed.' });
+    res.json({ success: true, data, message: 'M-Pesa code submitted. Awaiting admin verification.' });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

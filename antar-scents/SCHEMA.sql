@@ -188,3 +188,103 @@ CREATE POLICY "Service role full access prt" ON password_reset_tokens
 -- Create in the Supabase dashboard:
 -- Storage > New bucket > "product-images" > Public = true
 -- =============================================
+
+-- =============================================
+-- SCHEMA ADDITIONS & OPTIMIZATIONS
+-- All statements are idempotent (safe to re-run)
+-- =============================================
+
+-- 1. Missing column: users.email_verified
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified boolean DEFAULT false;
+
+-- 2. Missing table: email_verification_tokens
+CREATE TABLE IF NOT EXISTS email_verification_tokens (
+  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token text NOT NULL UNIQUE,
+  expires_at timestamptz NOT NULL,
+  created_at timestamptz DEFAULT now(),
+  CONSTRAINT one_evt_per_user UNIQUE (user_id)
+);
+CREATE INDEX IF NOT EXISTS idx_evt_token ON email_verification_tokens(token);
+CREATE INDEX IF NOT EXISTS idx_evt_user_id ON email_verification_tokens(user_id);
+ALTER TABLE email_verification_tokens ENABLE ROW LEVEL SECURITY;
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE tablename = 'email_verification_tokens' AND policyname = 'Service role full access evt'
+  ) THEN
+    CREATE POLICY "Service role full access evt" ON email_verification_tokens
+      USING (auth.role() = 'service_role');
+  END IF;
+END $$;
+
+-- 3. Missing table: categories
+CREATE TABLE IF NOT EXISTS categories (
+  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+  name text NOT NULL,
+  slug text UNIQUE NOT NULL,
+  sort_order integer DEFAULT 0,
+  active boolean DEFAULT true,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_categories_slug ON categories(slug);
+CREATE INDEX IF NOT EXISTS idx_categories_active ON categories(active);
+CREATE INDEX IF NOT EXISTS idx_categories_sort_order ON categories(sort_order);
+ALTER TABLE categories ENABLE ROW LEVEL SECURITY;
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE tablename = 'categories' AND policyname = 'Public read active categories'
+  ) THEN
+    CREATE POLICY "Public read active categories" ON categories
+      FOR SELECT USING (active = true);
+  END IF;
+END $$;
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE tablename = 'categories' AND policyname = 'Service role full access categories'
+  ) THEN
+    CREATE POLICY "Service role full access categories" ON categories
+      USING (auth.role() = 'service_role');
+  END IF;
+END $$;
+
+-- 4. Missing indexes: products (query filtering and sorting)
+CREATE INDEX IF NOT EXISTS idx_products_created_at ON products(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_products_selling_price ON products(selling_price);
+CREATE INDEX IF NOT EXISTS idx_products_product_type ON products(product_type);
+CREATE INDEX IF NOT EXISTS idx_products_tags ON products USING GIN(tags);
+-- Composite: most product list queries filter status then sort created_at
+CREATE INDEX IF NOT EXISTS idx_products_status_created_at ON products(status, created_at DESC);
+
+-- 5. Missing indexes: browsing_history
+CREATE INDEX IF NOT EXISTS idx_browsing_product_id ON browsing_history(product_id);
+-- viewed_at used in ORDER BY DESC for recommendation history queries
+CREATE INDEX IF NOT EXISTS idx_browsing_viewed_at ON browsing_history(viewed_at DESC);
+
+-- 6. Missing index: favourites.product_id (FK + delete path)
+CREATE INDEX IF NOT EXISTS idx_favourites_product_id ON favourites(product_id);
+
+-- 7. Missing indexes: orders (payment callback lookups + dashboard aggregation)
+-- Partial indexes keep them small: only rows that have these values set
+CREATE INDEX IF NOT EXISTS idx_orders_mpesa_checkout_id ON orders(mpesa_checkout_id)
+  WHERE mpesa_checkout_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_orders_mpesa_code ON orders(mpesa_code)
+  WHERE mpesa_code IS NOT NULL;
+-- Composite: dashboard queries always filter payment_status then sort by date
+CREATE INDEX IF NOT EXISTS idx_orders_payment_status_created_at ON orders(payment_status, created_at DESC);
+
+-- 8. Seed footer settings (new admin-editable keys)
+INSERT INTO settings (key, value) VALUES
+  ('footer_description', 'Premium fragrances curated for every personality. Genuine products delivered across Kenya.'),
+  ('footer_copyright', '© 2025 Antar Scents. All rights reserved.'),
+  ('footer_email', 'info@antarscents.shop'),
+  ('footer_phone', '+254 792 274 842'),
+  ('footer_whatsapp', '254792274842'),
+  ('footer_location', 'Nairobi, Kenya'),
+  ('footer_hours', 'Mon–Sat, 8AM–8PM'),
+  ('footer_instagram', 'https://instagram.com'),
+  ('footer_facebook', 'https://facebook.com'),
+  ('footer_tiktok', 'https://tiktok.com'),
+  ('footer_twitter', 'https://twitter.com')
+ON CONFLICT (key) DO NOTHING;

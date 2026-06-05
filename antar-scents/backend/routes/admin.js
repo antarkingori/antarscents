@@ -20,7 +20,9 @@ router.get('/dashboard', async (req, res) => {
       supabase.from('orders').select('id', { count: 'exact', head: true }),
       supabase.from('orders').select('id', { count: 'exact', head: true }).eq('order_status', 'pending'),
       supabase.from('products').select('id', { count: 'exact', head: true }).eq('status', 'active'),
-      supabase.from('orders').select('*').order('created_at', { ascending: false }).limit(10)
+      supabase.from('orders')
+        .select('id,order_number,customer_name,customer_phone,total,payment_status,order_status,payment_method,mpesa_code,created_at')
+        .order('created_at', { ascending: false }).limit(10)
     ]);
 
     const todayTotal = (todaySales.data || []).reduce((s, o) => s + parseFloat(o.total), 0);
@@ -125,10 +127,27 @@ router.get('/customers', async (req, res) => {
     const { data: customers, error, count } = await query;
     if (error) throw error;
 
-    const enriched = await Promise.all((customers || []).map(async c => {
-      const { data: orders } = await supabase.from('orders').select('total').eq('user_id', c.id).eq('payment_status', 'paid');
-      return { ...c, order_count: orders?.length || 0, total_spent: (orders || []).reduce((s, o) => s + parseFloat(o.total), 0) };
-    }));
+    // Single batch query instead of one query per customer (avoids N+1)
+    const enriched = await (async () => {
+      if (!customers?.length) return [];
+      const ids = customers.map(c => c.id);
+      const { data: paidOrders } = await supabase
+        .from('orders')
+        .select('user_id,total')
+        .in('user_id', ids)
+        .eq('payment_status', 'paid');
+      const byUser = {};
+      (paidOrders || []).forEach(o => {
+        if (!byUser[o.user_id]) byUser[o.user_id] = { count: 0, total: 0 };
+        byUser[o.user_id].count++;
+        byUser[o.user_id].total += parseFloat(o.total);
+      });
+      return customers.map(c => ({
+        ...c,
+        order_count: byUser[c.id]?.count || 0,
+        total_spent: byUser[c.id]?.total || 0,
+      }));
+    })();
 
     res.json({ success: true, data: enriched, total: count });
   } catch (err) {

@@ -57,6 +57,7 @@ export default function CartPage() {
                       <div>
                         <Link href={`/product/${item.handle}`} className="font-medium hover:text-gold transition-colors line-clamp-2">{item.title}</Link>
                         {item.variant && <p className="text-xs text-gray-400 mt-0.5">{item.variant}</p>}
+                        <p className="text-xs text-gray-500 mt-0.5">{formatKES(item.unit_price)} per unit</p>
                       </div>
                       <button onClick={() => removeItem(item.product_id, item.variant)} className="text-gray-500 hover:text-red-400 transition-colors flex-shrink-0 mt-0.5">
                         <Trash2 size={16} />
@@ -92,7 +93,11 @@ export default function CartPage() {
                 )}
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between text-gray-300">
-                    <span>Subtotal ({items.reduce((s, i) => s + i.quantity, 0)} items)</span>
+                    <span>Total Units</span>
+                    <span className="font-medium">{items.reduce((s, i) => s + i.quantity, 0)}</span>
+                  </div>
+                  <div className="flex justify-between text-gray-300">
+                    <span>Subtotal</span>
                     <span>{formatKES(subtotal)}</span>
                   </div>
                 </div>
@@ -106,15 +111,15 @@ export default function CartPage() {
                 </div>
                 <div className="space-y-1.5 text-sm border-t border-[#1A1A1A] pt-3">
                   <div className="flex justify-between text-gray-300">
-                    <span>Delivery ({zone?.label})</span>
-                    <span>{formatKES(deliveryFee)}</span>
+                    <span>Shipping ({zone?.label})</span>
+                    <span>{subtotal >= DELIVERY_THRESHOLD ? <span className="text-green-400">Free</span> : formatKES(deliveryFee)}</span>
                   </div>
-                  <div className="flex justify-between font-bold text-base pt-1">
+                  <div className="flex justify-between font-bold text-base pt-1 border-t border-[#1A1A1A] mt-1">
                     <span>Estimated Total</span>
-                    <span className="text-gold">{formatKES(estimatedTotal)}</span>
+                    <span className="text-gold">{formatKES(subtotal >= DELIVERY_THRESHOLD ? subtotal : estimatedTotal)}</span>
                   </div>
                 </div>
-                <p className="text-xs text-gray-500">Final total confirmed at checkout after selecting your exact delivery zone.</p>
+                <p className="text-xs text-gray-500">Exact shipping confirmed at checkout based on your delivery zone.</p>
                 <Link href="/checkout" className="btn-gold w-full py-3.5 text-center font-semibold flex items-center justify-center gap-2">
                   Checkout <ArrowRight size={18} />
                 </Link>

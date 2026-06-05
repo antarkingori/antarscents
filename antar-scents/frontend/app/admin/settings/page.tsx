@@ -47,6 +47,32 @@ const SETTING_GROUPS: SettingGroup[] = [
       { key: 'delivery_fee_far', label: 'Far Upcountry', type: 'number' },
     ]
   },
+  {
+    title: 'Footer — Company Info',
+    settings: [
+      { key: 'footer_description', label: 'Company Description', help: 'Short tagline shown under the logo in the footer' },
+      { key: 'footer_copyright', label: 'Copyright Text', help: 'e.g. © 2025 Antar Scents. All rights reserved.' },
+    ]
+  },
+  {
+    title: 'Footer — Contact Info',
+    settings: [
+      { key: 'footer_email', label: 'Email Address', type: 'email', help: 'Displayed in the footer contact section' },
+      { key: 'footer_phone', label: 'Phone Number', help: 'e.g. +254 792 274 842' },
+      { key: 'footer_whatsapp', label: 'WhatsApp Number', help: 'Digits only, e.g. 254792274842' },
+      { key: 'footer_location', label: 'Location', help: 'e.g. Nairobi, Kenya' },
+      { key: 'footer_hours', label: 'Business Hours', help: 'e.g. Mon–Sat, 8AM–8PM' },
+    ]
+  },
+  {
+    title: 'Footer — Social Media',
+    settings: [
+      { key: 'footer_instagram', label: 'Instagram URL' },
+      { key: 'footer_facebook', label: 'Facebook URL' },
+      { key: 'footer_tiktok', label: 'TikTok URL' },
+      { key: 'footer_twitter', label: 'Twitter / X URL' },
+    ]
+  },
 ];
 
 export default function AdminSettingsPage() {

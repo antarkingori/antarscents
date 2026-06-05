@@ -61,8 +61,10 @@ export default function CheckoutPage() {
     }
   }, [user]);
 
+  const DELIVERY_THRESHOLD = 5000;
   const zone = DELIVERY_OPTIONS[deliveryZone];
-  const deliveryFee = zone ? (parseInt(settings[zone.key] || '') || zone.defaultFee) : 200;
+  const baseDeliveryFee = zone ? (parseInt(settings[zone.key] || '') || zone.defaultFee) : 200;
+  const deliveryFee = subtotal >= DELIVERY_THRESHOLD ? 0 : baseDeliveryFee;
   const estimatedTotal = subtotal + deliveryFee;
   const tillNumber = settings.mpesa_till_number || '000000';
   const chargeTotal = orderTotal ?? estimatedTotal;
@@ -212,9 +214,14 @@ export default function CheckoutPage() {
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-1.5">Delivery Zone *</label>
                 <select value={deliveryZone} onChange={e => setDeliveryZone(parseInt(e.target.value))} className="input-dark">
-                  {DELIVERY_OPTIONS.map((o, i) => (
-                    <option key={i} value={i}>{o.label} — {formatKES(parseInt(settings[o.key] || '') || o.defaultFee)}</option>
-                  ))}
+                  {DELIVERY_OPTIONS.map((o, i) => {
+                    const fee = parseInt(settings[o.key] || '') || o.defaultFee;
+                    return (
+                      <option key={i} value={i}>
+                        {o.label} — {subtotal >= DELIVERY_THRESHOLD ? 'Free' : formatKES(fee)}
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
               <div>

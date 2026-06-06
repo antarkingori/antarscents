@@ -10,10 +10,14 @@ const app = express();
 
 // Security & middleware
 app.use(helmet());
-// CORS: reflect exact request origin so credentials work with any origin in dev;
-// restrict to FRONTEND_URL in production
+const isProd = process.env.NODE_ENV === 'production';
+if (isProd && !process.env.FRONTEND_URL) {
+  console.warn('[WARN] FRONTEND_URL is not set — CORS will block all cross-origin requests in production');
+}
 app.use(cors({
-  origin: process.env.FRONTEND_URL ? process.env.FRONTEND_URL.split(',') : true,
+  origin: isProd
+    ? (process.env.FRONTEND_URL?.split(',') || [])
+    : true,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
